@@ -12,6 +12,10 @@ An interactive WebGIS dashboard for exploring school-zone crash patterns, safety
 - Time-based crash analysis
 - Analytics dashboard with charts and statistics
 
+## Development Phase
+
+This project is currently under development phase
+
 ## Project
 
 University of Wyoming - Geographic Visualization (GIST 5200)
