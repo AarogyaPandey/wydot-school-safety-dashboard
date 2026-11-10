@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import { loadEnv } from 'vite';
+import { loadAnalysis, loadResearchDataset, sourceOptions } from '../server/source-data';
+import { DEFAULT_FILTERS } from '../src/domain/filters';
+import { selectMatches, selectSchoolCounts } from '../src/domain/selectors';
+
+const options = sourceOptions({ ...loadEnv('research', process.cwd(), 'PHASE2_'), ...loadEnv('research', process.cwd(), 'PYTHON_') });
+const data = await loadResearchDataset(options);
+assert.equal(data.schools.length, 39, 'School roster differs from the audited workbook.');
+assert.equal(data.crashes.length, 10457, 'Crash count differs from the audited school-linked export. Review the release baseline.');
+assert.equal(data.links.length, 11510, 'Relationship count differs from the audited export.');
+assert.equal(data.metadata.latestDate, '2026-09-04', 'School-linked cutoff differs from the audited export.');
+const all = { ...DEFAULT_FILTERS, startYear: 1994, endYear: 2026, bufferFt: 1320 as const };
+assert.equal(selectMatches(data, all).length, 10457);
+assert.equal(selectMatches(data, { ...all, bufferFt: 1000 }).length, 5163);
+assert.equal(data.crashes.filter(c => c.year < 2016 && (c.pedestrian !== null || c.cyclist !== null)).length, 0);
+assert(data.links.every(l => l.distanceFt <= 1320));
+const schoolCounts = selectSchoolCounts(data, selectMatches(data, { ...all, bufferFt: 1000 }), all);
+assert.equal(schoolCounts.reduce((sum, r) => sum + r.crashes, 0), 5330);
+const analysis = await loadAnalysis(options);
+assert(analysis.speedRates.every(r => r.crashes_per_million_vehicle_miles === null));
+console.log(JSON.stringify({ status: 'PASS; baseline remains provisional', schools: data.schools.length, uniqueCrashes: data.crashes.length, crashSchoolPairs: data.links.length, latestSchoolLinkedDate: data.metadata.latestDate, uniqueWithin1000Ft: 5163, overlappingSchoolCounts1000Ft: 5330, unresolved: ['Saved prep log and later outputs differ', 'Source geodatabase and generated GeoPackages not supplied', 'Distance thresholds use existing rounded distances', 'School coverage and historical opening dates unverified', 'Exposure-adjusted speed rates unavailable', 'Redistribution permissions pending'] }, null, 2));
