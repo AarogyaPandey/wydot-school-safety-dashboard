@@ -4,9 +4,9 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { parse } from 'csv-parse/sync';
 import { z } from 'zod';
-import type { FeatureCollection } from 'geojson';
+import type { Feature, FeatureCollection } from 'geojson';
 import { researchDatasetSchema, type Crash, type CrashSchoolLink, type ResearchDataset, type School, type Severity, type TableRow } from '../src/domain/types';
-import { clipRoadFeatures } from './geometry';
+import { clipRoadFeatures, CONTEXT_BOUNDS } from './geometry';
 
 const execute = promisify(execFile);
 export type SourceOptions = { dashboardDir: string; schoolFile: string; pythonCommand: string; projectDir: string };
@@ -78,9 +78,93 @@ export const LAYER_FILES = {
   'hot-school-day': 'hotspots_school_day_2016_2025.geojson',
 } as const;
 export type LayerKey = keyof typeof LAYER_FILES;
+const COUNTY_MAINTAINED_SPEED_QUERY = 'https://services1.arcgis.com/e5t4ywWgRBNUuDeU/arcgis/rest/services/LC_Maintained/FeatureServer/0/query';
+const COUNTY_MAINTAINED_SPEED_PAGE_SIZE = 2000;
+const countySpeedPageSchema = z.object({
+  type: z.literal('FeatureCollection'),
+  properties: z.object({ exceededTransferLimit: z.boolean().optional() }).optional(),
+  features: z.array(z.object({
+    type: z.literal('Feature'),
+    id: z.union([z.number(), z.string()]).optional(),
+    geometry: z.union([
+      z.object({ type: z.literal('LineString'), coordinates: z.array(z.array(z.number()).min(2)).min(2) }),
+      z.object({ type: z.literal('MultiLineString'), coordinates: z.array(z.array(z.array(z.number()).min(2)).min(2)) }),
+    ]),
+    properties: z.record(z.string(), z.unknown()),
+  })),
+});
+
+export function normalizeCountySpeedFeature(feature: z.infer<typeof countySpeedPageSchema>['features'][number]): Feature {
+  const properties = feature.properties;
+  const roadName = typeof properties.st_name === 'string' && properties.st_name.trim()
+    ? properties.st_name.trim()
+    : [properties.pre_dir, properties.pre_type, properties.name, properties.suf_type, properties.suf_dir]
+      .filter((part): part is string => typeof part === 'string' && Boolean(part.trim()))
+      .map(part => part.trim())
+      .join(' ');
+  const rawLimit = properties.speedlim;
+  return {
+    type: 'Feature',
+    id: feature.id ?? properties.FID as string | number | undefined,
+    geometry: feature.geometry,
+    properties: {
+      ...properties,
+      speed_limit: typeof rawLimit === 'number' && Number.isFinite(rawLimit) ? rawLimit : null,
+      speed_limit_source: 'Laramie County GIS Cooperative · LC_Maintained',
+      road_name: roadName || null,
+    },
+  };
+}
+
+let countySpeedFeatures: Promise<Feature[]> | undefined;
+async function loadCountyMaintainedSpeedFeatures(): Promise<Feature[]> {
+  if (!countySpeedFeatures) {
+    countySpeedFeatures = (async () => {
+      const bounds = CONTEXT_BOUNDS.join(',');
+      const features: Feature[] = [];
+      let offset = 0;
+      while (true) {
+        const url = new URL(COUNTY_MAINTAINED_SPEED_QUERY);
+        url.search = new URLSearchParams({
+          where: '1=1',
+          geometry: bounds,
+          geometryType: 'esriGeometryEnvelope',
+          inSR: '4326',
+          spatialRel: 'esriSpatialRelIntersects',
+          outFields: 'FID,speedlim,st_name,pre_dir,pre_type,name,suf_type,suf_dir',
+          returnGeometry: 'true',
+          outSR: '4326',
+          resultOffset: String(offset),
+          resultRecordCount: String(COUNTY_MAINTAINED_SPEED_PAGE_SIZE),
+          f: 'geojson',
+        }).toString();
+        const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+        if (!response.ok) throw new Error(`Laramie County maintained-road service returned HTTP ${response.status}.`);
+        const parsed = countySpeedPageSchema.safeParse(await response.json());
+        if (!parsed.success) throw new Error('Laramie County maintained-road service returned an invalid GeoJSON feature page.');
+        features.push(...parsed.data.features.map(normalizeCountySpeedFeature));
+        offset += parsed.data.features.length;
+        if (!parsed.data.properties?.exceededTransferLimit || parsed.data.features.length === 0) break;
+      }
+      return features;
+    })().catch(error => {
+      countySpeedFeatures = undefined;
+      throw error;
+    });
+  }
+  return countySpeedFeatures;
+}
+
 export async function loadLayer(options: SourceOptions, key: LayerKey, trafficYear = 2025): Promise<FeatureCollection> {
   let data = JSON.parse(await readFile(path.join(options.dashboardDir, LAYER_FILES[key]), 'utf8')) as FeatureCollection;
   if (key === 'aadt') data = { ...data, features: data.features.filter(f => Number(f.properties?.traffic_year) === trafficYear) };
+  if (key === 'speed') {
+    const wyDotFeatures = data.features.map(feature => ({
+      ...feature,
+      properties: { ...feature.properties, speed_limit_source: 'WYDOT state-route speed-limit inventory' },
+    }));
+    data = { ...data, features: [...wyDotFeatures, ...await loadCountyMaintainedSpeedFeatures()] };
+  }
   if (key === 'aadt' || key === 'roads' || key === 'speed') data = clipRoadFeatures(data);
   return data;
 }

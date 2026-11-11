@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, CircleMarker, MapContainer, Marker, Pane, Popup, Rectangle, ScaleControl, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
-import { divIcon, type LatLngExpression, type Map as LeafletMap } from 'leaflet';
+import { divIcon, svg, type LatLngExpression, type Map as LeafletMap } from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ArrowUpRight, ChevronDown, Crosshair, Expand, Layers, MapPin, Mountain, MousePointer2, Pause, Play, RotateCcw, School as SchoolIcon, Search, SlidersHorizontal, SquareDashed, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useDashboard } from '../app/DashboardContext';
@@ -11,6 +11,7 @@ import { flagsUnknown, isPedBike, severityGroup } from '../domain/selectors';
 import { SEVERITY_GROUPS, SEVERITY_LABELS, type Bounds, type School } from '../domain/types';
 import RemoteLayer from '../features/map/RemoteLayer';
 import { BASEMAPS, type BasemapId } from '../features/map/basemaps';
+import type { SchoolBufferCenter, SpeedLimitCategory } from '../features/map/speed-limits';
 import { DismissibleDetails } from '../components/DismissibleDetails';
 
 type LayerState = { schools: boolean; zones: boolean; crashes: boolean; hotspots: boolean; crosswalks: boolean; sidewalks: boolean; signals: boolean; speed: boolean; aadt: boolean; roads: boolean };
@@ -19,6 +20,7 @@ const INFRA_LAYERS = [{ id: 'crosswalks', label: 'Crosswalks', color: '#664b9f' 
 const HOTSETS = [{ key: 'hot-all-recent', label: 'All crashes · 2016–2025' }, { key: 'hot-all-history', label: 'All crashes · 1994–2025' }, { key: 'hot-serious', label: 'Fatal / serious · 1994–2025' }, { key: 'hot-ped-bike', label: 'Pedestrian / bicycle · 2016–2025' }, { key: 'hot-school-day', label: 'School days · 2016–2025' }];
 const schoolIcons = [false, true].map(selected => divIcon({ className: `school-marker-wrapper${selected ? ' is-selected' : ''}`, html: renderToStaticMarkup(<span className="school-map-marker"><SchoolIcon size={14} strokeWidth={1.8} aria-hidden="true" /></span>), iconSize: [22, 22], iconAnchor: [11, 11] }));
 const schoolIcon = (selected: boolean) => schoolIcons[Number(selected)];
+const crashPointRenderer = svg({ pane: 'crash-points' });
 
 function MapBridge({ onMap }: { onMap: (map: LeafletMap) => void }) {
   const map = useMap(); const { selectedSchool, filters } = useDashboard();
@@ -66,6 +68,7 @@ export default function MapPage() {
   const [hotset, setHotset] = useState('hot-all-recent'), [trafficYear, setTrafficYear] = useState(2025), [selecting, setSelecting] = useState(false);
   const [playing, setPlaying] = useState(false), [layerErrors, setLayerErrors] = useState<Record<string, string>>({}), [tileError, setTileError] = useState(false);
   const [map, setMap] = useState<LeafletMap | null>(null), [fullscreen, setFullscreen] = useState(false);
+  const [speedCategories, setSpeedCategories] = useState<SpeedLimitCategory[] | null>(null);
   const [basemapId, setBasemapId] = useState<BasemapId>(() => {
     try { const saved = sessionStorage.getItem('school-safety-basemap'); return saved && saved in BASEMAPS ? saved as BasemapId : 'streets'; } catch { return 'streets'; }
   });
@@ -106,6 +109,12 @@ export default function MapPage() {
   const resetMap = () => { setPlaying(false); setSelecting(false); map?.stop(); fitSchools(); resetFilters(); };
   const fullscreenMap = () => { setFullscreen(value => !value); window.setTimeout(() => map?.invalidateSize(), 30); };
   const visibleSchools = state.data?.schools.filter(s => filters.level === 'all' || filters.level === s.level) || [];
+  const schoolBufferCenters = useMemo<SchoolBufferCenter[]>(
+    () => (state.data?.schools || [])
+      .filter(s => filters.level === 'all' || s.level === filters.level)
+      .map(s => [s.lon, s.lat]),
+    [state.data?.schools, filters.level],
+  );
   const hasFilters = serializeFilters(filters) !== '';
   return <main id="main-content" className={`map-page${fullscreen ? ' map-expanded' : ''}`}>
     <h1 className="sr-only">Map</h1>
@@ -116,14 +125,15 @@ export default function MapPage() {
       <BoxSelection active={selecting} onFinish={finishSelection} onCancel={cancelSelection} />
       {filters.bounds && <Rectangle bounds={[[filters.bounds.south, filters.bounds.west], [filters.bounds.north, filters.bounds.east]]} pathOptions={{ color: '#806345', weight: 2, dashArray: '5 4', fillOpacity: 0.025 }} interactive={false} />}
       {ready && <>
-        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.filter(s => filters.schoolId === 'all' || filters.schoolId === s.id).map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: selectedSchool?.id === s.id ? '#996d20' : '#9c824f', weight: selectedSchool?.id === s.id ? 2 : 1.2, dashArray: '5 5', fillOpacity: 0.055 }} interactive={false} />)}</Pane>
-        {INFRA_LAYERS.filter(l => layers[l.id]).map(l => <RemoteLayer key={l.id} layerKey={l.id} trafficYear={trafficYear} onStatus={layerStatus} />)}
+        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: selectedSchool?.id === s.id ? '#996d20' : '#9c824f', weight: selectedSchool?.id === s.id ? 2 : 1.2, dashArray: '5 5', fillOpacity: 0.055 }} interactive={false} />)}</Pane>
+        {INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <RemoteLayer key={l.id} layerKey={l.id} trafficYear={trafficYear} onStatus={layerStatus} />)}
+        <Pane name="speed-limits" style={{ zIndex: 420 }}>{layers.speed && <RemoteLayer layerKey="speed" trafficYear={trafficYear} onStatus={layerStatus} onSpeedCategories={setSpeedCategories} schoolBufferCenters={schoolBufferCenters} schoolBufferFt={filters.bufferFt} />}</Pane>
         {layers.hotspots && <RemoteLayer layerKey={hotset} trafficYear={trafficYear} onStatus={layerStatus} />}
-        <Pane name="crash-points" style={{ zIndex: 430 }}>{layers.crashes && [...matches].sort((a, b) => Number(severityGroup(a.crash.severity) === 'fatal-serious') - Number(severityGroup(b.crash.severity) === 'fatal-serious')).map(({ crash, links }) => {
+        <Pane name="crash-points" style={{ zIndex: 440 }}>{layers.crashes && [...matches].sort((a, b) => Number(severityGroup(a.crash.severity) === 'fatal-serious') - Number(severityGroup(b.crash.severity) === 'fatal-serious')).map(({ crash, links }) => {
           const serious = severityGroup(crash.severity) === 'fatal-serious', color = SEVERITY_GROUPS.find(s => s.id === severityGroup(crash.severity))!.color;
           const nearest = links.reduce((a, b) => a.distanceFt <= b.distanceFt ? a : b);
           const school = state.data!.schools.find(s => s.id === nearest.schoolId)!;
-          return <CircleMarker key={crash.id} center={[crash.lat, crash.lon]} radius={serious ? 4.5 : 3} pathOptions={{ color: isPedBike(crash) ? '#352f29' : color, weight: isPedBike(crash) ? 1.5 : 0.5, fillColor: color, fillOpacity: serious ? 0.95 : 0.7 }}><Tooltip>{SEVERITY_LABELS[crash.severity]} · {crash.year}</Tooltip><Popup><div className="feature-popup"><h3>{SEVERITY_LABELS[crash.severity]}</h3><p>{formatDate(crash.date)} · {formatClock(crash.hhmm)} local time</p><p>{nearest.distanceFt.toLocaleString()} ft from {school.name}</p><p>{isPedBike(crash) ? `Involvement: ${crash.pedestrian ? 'pedestrian' : ''}${crash.pedestrian && crash.cyclist ? ' and ' : ''}${crash.cyclist ? 'bicycle' : ''}` : flagsUnknown(crash) ? 'Pedestrian/bicycle involvement unknown' : 'No pedestrian/bicycle involvement recorded'}</p><p className="muted">{nearest.window} · Assumed calendar and bell times.</p></div></Popup></CircleMarker>;
+          return <CircleMarker key={crash.id} center={[crash.lat, crash.lon]} radius={serious ? 5.5 : 4} renderer={crashPointRenderer} pathOptions={{ color: '#352f29', weight: isPedBike(crash) ? 1.5 : 1.25, fillColor: color, fillOpacity: 0.95 }}><Tooltip>{SEVERITY_LABELS[crash.severity]} · {crash.year}</Tooltip><Popup><div className="feature-popup"><h3>{SEVERITY_LABELS[crash.severity]}</h3><p>{formatDate(crash.date)} · {formatClock(crash.hhmm)} local time</p><p>{nearest.distanceFt.toLocaleString()} ft from {school.name}</p><p>{isPedBike(crash) ? `Involvement: ${crash.pedestrian ? 'pedestrian' : ''}${crash.pedestrian && crash.cyclist ? ' and ' : ''}${crash.cyclist ? 'bicycle' : ''}` : flagsUnknown(crash) ? 'Pedestrian/bicycle involvement unknown' : 'No pedestrian/bicycle involvement recorded'}</p><p className="muted">{nearest.window} · Assumed calendar and bell times.</p></div></Popup></CircleMarker>;
         })}</Pane>
         {layers.schools && visibleSchools.map(s => <Marker key={s.id} position={[s.lat, s.lon] as LatLngExpression} icon={schoolIcon(selectedSchool?.id === s.id)} opacity={selectedSchool && selectedSchool.id !== s.id ? 0.55 : 1}><Tooltip direction="top" offset={[0, -12]}>{s.name}</Tooltip><Popup><SchoolPopup school={s} /></Popup></Marker>)}
       </>}
@@ -148,7 +158,10 @@ export default function MapPage() {
     </fieldset><p className="field-note">Infrastructure coverage is incomplete.</p></div>}
     <div className="map-tools" role="group" aria-label="Map tools"><button className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => map?.zoomIn()}><ZoomIn size={16} /></button><button className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => map?.zoomOut()}><ZoomOut size={16} /></button><span className="tool-divider" /><button className="icon-button" aria-label="Fit all school locations" title="Fit schools" onClick={fitSchools}><Crosshair size={16} /></button><button className={`icon-button${selecting ? ' active' : ''}`} disabled={!ready} aria-label="Select a map area" title="Select area" aria-pressed={selecting} onClick={() => { setSelecting(value => !value); setShowFilters(false); setShowLayers(false); }}><SquareDashed size={16} /></button><button className="icon-button" aria-label={fullscreen ? 'Exit expanded map' : 'Expand map'} title={fullscreen ? 'Exit expanded map' : 'Expand map'} onClick={fullscreenMap}><Expand size={15} /></button></div>
     {selecting && <div className="selection-hint" role="status"><MousePointer2 size={13} />Select two corners · Esc to cancel<button className="icon-button" onClick={cancelSelection} aria-label="Cancel area selection"><X size={13} /></button></div>}
-    <DismissibleDetails className="map-legend"><summary>Legend<ChevronDown size={12} /></summary><div>{layers.schools && <span><i className="legend-school" />School</span>}{layers.zones && <span><i className="legend-zone" />{filters.bufferFt.toLocaleString()} ft buffer</span>}{layers.crashes && SEVERITY_GROUPS.map(s => <span key={s.id}><i style={{ background: s.color }} />{s.label}</span>)}{layers.crashes && <span><i className="legend-ring" />Pedestrian / bicycle</span>}{layers.hotspots && <><span><i className="legend-hot" />Significant hot cell</span><span className="legend-note">Fixed population · adjusted p &lt; 0.05</span></>}{INFRA_LAYERS.filter(l => layers[l.id]).map(l => <span key={l.id}><i style={{ background: l.color, borderRadius: 2 }} />{l.label}</span>)}{layers.aadt && <span className="legend-note">Darker / wider = higher AADT · {trafficYear}</span>}</div></DismissibleDetails>
+    <div className="map-legend-stack">
+      <DismissibleDetails className="map-legend"><summary>Legend<ChevronDown size={12} /></summary><div>{layers.schools && <span><i className="legend-school" />School</span>}{layers.zones && <span><i className="legend-zone" />{filters.bufferFt.toLocaleString()} ft buffer</span>}{layers.crashes && SEVERITY_GROUPS.map(s => <span key={s.id}><i style={{ background: s.color }} />{s.label}</span>)}{layers.crashes && <span><i className="legend-ring" />Pedestrian / bicycle</span>}{layers.hotspots && <><span><i className="legend-hot" />Significant hot cell</span><span className="legend-note">Fixed population · adjusted p &lt; 0.05</span></>}{INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <span key={l.id}><i style={{ background: l.color, borderRadius: 2 }} />{l.label}</span>)}{layers.aadt && <span className="legend-note">Darker / wider = higher AADT · {trafficYear}</span>}</div></DismissibleDetails>
+      {layers.speed && <DismissibleDetails className="map-legend"><summary>Speed limits<ChevronDown size={12} /></summary><div>{speedCategories === null ? <span className="legend-note">Loading speed limits…</span> : speedCategories.length ? speedCategories.map(category => <span key={category.label}><i className={`legend-speed-limit${category.schoolZoneAssumption ? ' school-zone-assumption' : ''}`} style={category.schoolZoneAssumption ? { borderTop: `3px dashed ${category.color}` } : { background: category.color }} />{category.label}</span>) : <span className="legend-note">No speed-limit values available.</span>}<span className="legend-note">WYDOT and Laramie County GIS Cooperative inventories; coverage is incomplete. County value 0 is unspecified, not 0 mph.</span><span className="legend-note">20 mph is an analysis assumption within the selected-distance buffers around displayed schools, not verified posted signage. Popups retain the source value.</span></div></DismissibleDetails>}
+    </div>
     {Object.keys(layerErrors).length > 0 && <div className="layer-error" role="alert">Layer unavailable. Toggle it to retry.</div>}
     {tileError && <div className="tile-error" role="status">Basemap unavailable.</div>}
     <div className="timeline"><button className={`play-button${playing ? ' playing' : ''}`} disabled={!ready} aria-label={playing ? 'Stop year playback' : 'Play years'} onClick={startPlayback}>{playing ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}</button><div className="timeline-label"><strong>{filters.startYear === filters.endYear ? filters.startYear : `${filters.startYear}–${filters.endYear}`}{filters.endYear === 2026 ? '*' : ''}</strong></div><div className="timeline-sliders"><label className="sr-only" htmlFor="timeline-start">Timeline start year</label><input id="timeline-start" type="range" min="1994" max="2026" value={filters.startYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ startYear: Math.min(Number(e.target.value), current.endYear) }))} /><label className="sr-only" htmlFor="timeline-end">Timeline end year</label><input id="timeline-end" type="range" min="1994" max="2026" value={filters.endYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ endYear: Math.max(Number(e.target.value), current.startYear) }))} /><div className="timeline-ticks"><span>1994</span><span>2026*</span></div></div></div>

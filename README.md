@@ -4,7 +4,7 @@ Phase 3 WebGIS dashboard for the University of Wyoming GIST 5200 project in coll
 
 ## Run locally
 
-Use Node.js 22.12+ and Python 3. Install dependencies with `npm ci`, then run `npm run dev` and open `http://127.0.0.1:5173`. The research preview reads the existing neighboring Phase 2 exports and school workbook **in memory**. It does not copy source datasets into this repository. Phase 2 is read-only.
+Use Node.js 22.12+ and Python 3. Install dependencies with `npm ci`, then run `npm run dev` and open `http://127.0.0.1:5173`. The research preview reads the existing neighboring Phase 2 exports and school workbook **in memory**. When the posted speed-limit layer is enabled, it also queries the Laramie County GIS Cooperative `LC_Maintained` service for road features in the map context bounds; an internet connection is required. Source data is not copied into this repository. Phase 2 is read-only.
 
 On this Windows workstation, double-click `start-dashboard.cmd`. Keep its terminal window open. It finds installed Node.js or the checksum-verified portable runtime directly, starts the local server, and opens `http://127.0.0.1:5173/map` in your browser once the server is listening. It does not require a global npm installation. If the temporary runtime is removed, install Node.js 22.12+; no system-wide configuration was changed. `start-dashboard.cmd --no-open` starts the same server without opening a browser, for automated checks.
 
