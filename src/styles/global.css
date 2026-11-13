@@ -268,6 +268,47 @@ th button { display: flex; align-items: center; gap: 5px; padding: 0; background
 .exposure-note p { margin: 7px 0; color: #796c5c; font-size: 11px; line-height: 1.8; }
 .exposure-note a { display: inline-flex; align-items: center; gap: 5px; color: #756858; font-size: 11px; }
 
+/* Browser-only GeoJSON workspace */
+.upload-control { position: relative; display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
+.upload-control input[type=file] { pointer-events: none; }
+.upload-menu { position: relative; }
+.upload-menu > summary { list-style: none; cursor: pointer; }
+.upload-menu > summary::-webkit-details-marker { display: none; }
+.upload-menu > summary small { padding: 1px 4px; border-radius: 3px; background: #f0ebe2; font-size: 9px; }
+.upload-menu-panel { position: absolute; z-index: 1050; top: 42px; right: 0; width: 320px; max-height: 65dvh; overflow-y: auto; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #fff; box-shadow: 0 8px 28px #362c1e26; }
+.upload-source { display: flex; gap: 14px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+.upload-source label { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.upload-source input { margin: 0; accent-color: var(--primary); }
+.upload-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 14px 0 8px; font-size: 11px; }
+.upload-layer-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #eeeae3; }
+.upload-layer-color { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.upload-layer-name { flex: 1; min-width: 0; }
+.upload-layer-name strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; }
+.upload-layer-name small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.layer-switch { display: flex; align-items: center; flex-shrink: 0; width: 30px; height: 17px; padding: 2px; border: 1px solid #c7c1b8; border-radius: 12px; background: #dedad4; }
+.layer-switch span { width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #352f2930; }
+.layer-switch[aria-checked=true] { justify-content: flex-end; border-color: var(--primary); background: var(--primary); }
+.upload-layer-row .icon-button { width: 23px; height: 25px; }
+.upload-message { position: absolute; z-index: 1100; top: 42px; right: 0; width: min(360px, calc(100vw - 24px)); max-height: 260px; overflow-y: auto; padding: 12px; border: 1px solid #dfc4b5; border-radius: 6px; background: #fff8f3; box-shadow: var(--shadow); }
+.upload-message > .icon-button { float: right; width: 22px; height: 22px; }
+.upload-message p { margin: 4px 0; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.upload-empty { margin-bottom: 15px; padding: 12px; border: 1px solid var(--line); border-radius: 5px; background: #fff; font-size: 12px; }
+.upload-map-label { display: inline-flex; align-items: center; gap: 7px; min-height: 35px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 6px; background: #fff; box-shadow: var(--shadow); font-size: 11px; }
+.filter-panel input[type=date] { width: 100%; height: 34px; padding: 7px; border: 1px solid var(--line); border-radius: 5px; font-size: 11px; }
+.filter-summary { min-width: 0; overflow-wrap: anywhere; }
+.layer-panel .uploaded-layer-list { margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+@media (max-width: 700px) {
+  .analytics-toolbar-actions { flex: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+  .analytics-toolbar-actions > .quiet { padding: 7px; }
+  .analytics-toolbar-actions > a.quiet { font-size: 0; }
+  .analytics-toolbar-actions > .reset-control > span { display: none; }
+  .upload-control { gap: 5px; }
+  .upload-control .button { padding: 7px 8px; gap: 5px; }
+  .upload-menu > summary > span { display: none; }
+  .upload-menu-panel, .upload-message { position: fixed; top: calc(var(--header-height) + 66px); right: 12px; left: 12px; width: auto; }
+  .upload-map-label { max-width: 115px; font-size: 10px; }
+}
+
 /* Project documentation */
 .about-page { max-width: 1120px; margin: 0 auto; padding: 26px 28px 40px; }
 .about-heading { padding-bottom: 23px; border-bottom: 1px solid var(--line); }

@@ -84,7 +84,7 @@ test('production withholds datasets and has no research endpoint', async ({ page
   const response = await request.get('http://127.0.0.1:4173/data/manifest.json');
   expect(await response.json()).toMatchObject({ status: 'withheld', datasets: [] });
   const localRoute = await request.get('http://127.0.0.1:4173/__research/dataset');
-  expect(localRoute.headers()['content-type']).not.toContain('application/json');
+  expect(localRoute.headers()['content-type'] ?? '').not.toContain('application/json');
   await page.goto('http://127.0.0.1:4173/analytics');
   await expect(page.getByText('Data unavailable in this build.', { exact: true })).toBeVisible();
   await expect(page.getByTestId('unique-crash-count')).toHaveText('—');

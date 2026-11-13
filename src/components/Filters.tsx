@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import UploadedFilters from '../features/uploads/UploadedFilters';
 import { useDashboard } from '../app/DashboardContext';
 import { SCHOOL_LEVELS, SEVERITY_GROUPS, TIME_LABELS, type Filters as FilterValues } from '../domain/types';
 
@@ -33,6 +34,7 @@ export function FilterPanel({ onClose }: { onClose?: () => void }) {
   </aside>;
 }
 export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { usingUploads } = useDashboard();
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -43,9 +45,10 @@ export function FilterDrawer({ open, onClose }: { open: boolean; onClose: () => 
     return () => { window.removeEventListener('keydown', escape); if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); };
   }, [open, onClose]);
   if (!open) return null;
-  return <div id="dashboard-filters" ref={panel} className="filter-drawer" role="dialog" aria-label="Filters" tabIndex={-1}><FilterPanel onClose={onClose} /></div>;
+  return <div id="dashboard-filters" ref={panel} className="filter-drawer" role="dialog" aria-label="Filters" tabIndex={-1}>{usingUploads ? <UploadedFilters onClose={onClose} /> : <FilterPanel onClose={onClose} />}</div>;
 }
 export function FilterSummary() {
-  const { filters, selectedSchool, updateFilters } = useDashboard();
+  const { filters, selectedSchool, updateFilters, usingUploads, uploads, uploadSettings } = useDashboard();
+  if (usingUploads) return <div className="filter-summary" aria-label="Active filters"><span className="scope-chip">Uploaded files</span><span>{uploads.filter(l => l.enabled).length} active {uploads.filter(l => l.enabled).length === 1 ? "layer" : "layers"}</span>{uploadSettings.categoryValue && <span>{uploadSettings.categoryField}: {uploadSettings.categoryValue}</span>}{(uploadSettings.fromDate || uploadSettings.toDate) && <span>{uploadSettings.fromDate || "Any"}–{uploadSettings.toDate || "Any"}</span>}{filters.bounds && <button className="removable-chip" onClick={() => updateFilters({ bounds: null })}>Selected map area<X size={12} /></button>}</div>;
   return <div className="filter-summary" aria-label="Active filters"><span className="scope-chip"><span className="status-dot" />{selectedSchool?.name || (filters.schoolId === 'all' ? 'All schools' : 'School unavailable')}</span><span>{filters.startYear}–{filters.endYear}{filters.endYear === 2026 ? '*' : ''}</span><span>{filters.bufferFt.toLocaleString()} ft</span>{filters.schoolDays && <span>School days*</span>}{filters.time !== 'all' && <span>{TIME_LABELS[filters.time]}</span>}{filters.bounds && <button className="removable-chip" onClick={() => updateFilters({ bounds: null })}>Selected map area<X size={12} /></button>}</div>;
 }

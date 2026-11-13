@@ -12,6 +12,9 @@ import { SEVERITY_GROUPS, SEVERITY_LABELS, type Bounds, type School } from '../d
 import RemoteLayer from '../features/map/RemoteLayer';
 import { BASEMAPS, type BasemapId } from '../features/map/basemaps';
 import type { SchoolBufferCenter, SpeedLimitCategory } from '../features/map/speed-limits';
+import UploadedMapLayers from '../features/uploads/UploadedMapLayers';
+import { UploadedLayerList } from '../features/uploads/UploadControl';
+import { layerBounds } from '../features/uploads/data';
 import { DismissibleDetails } from '../components/DismissibleDetails';
 
 type LayerState = { schools: boolean; zones: boolean; crashes: boolean; hotspots: boolean; crosswalks: boolean; sidewalks: boolean; signals: boolean; speed: boolean; aadt: boolean; roads: boolean };
@@ -23,9 +26,17 @@ const schoolIcon = (selected: boolean) => schoolIcons[Number(selected)];
 const crashPointRenderer = svg({ pane: 'crash-points' });
 
 function MapBridge({ onMap }: { onMap: (map: LeafletMap) => void }) {
-  const map = useMap(); const { selectedSchool, filters } = useDashboard();
-  useEffect(() => { onMap(map); const observer = new ResizeObserver(() => map.invalidateSize()); observer.observe(map.getContainer()); return () => observer.disconnect(); }, [map, onMap]);
-  useEffect(() => { if (selectedSchool) map.flyTo([selectedSchool.lat, selectedSchool.lon], filters.bufferFt === 1320 ? 14 : 15, { duration: 0.6 }); }, [selectedSchool, filters.bufferFt, map]);
+  const map = useMap(); const { selectedSchool, filters, usingUploads, uploads } = useDashboard();
+  const fittedUploads = useRef(false);
+  useEffect(() => { onMap(map); const observer = new ResizeObserver(() => map.invalidateSize({ pan: false })); observer.observe(map.getContainer()); return () => observer.disconnect(); }, [map, onMap]);
+  useEffect(() => { if (!usingUploads && selectedSchool) map.flyTo([selectedSchool.lat, selectedSchool.lon], filters.bufferFt === 1320 ? 14 : 15, { duration: 0.6 }); }, [selectedSchool, filters.bufferFt, map, usingUploads]);
+  useEffect(() => {
+    if (!usingUploads) { fittedUploads.current = false; return; }
+    if (fittedUploads.current) return;
+    const bounds = layerBounds(uploads);
+    if (bounds) map.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [50, 80], maxZoom: 16, animate: false });
+    fittedUploads.current = true;
+  }, [usingUploads, map, uploads]);
   return null;
 }
 function BoxSelection({ active, onFinish, onCancel }: { active: boolean; onFinish: (b: Bounds) => void; onCancel: () => void }) {
@@ -63,7 +74,7 @@ function SearchSchools() {
 }
 
 export default function MapPage() {
-  const { state, filters, updateFilters, resetFilters, selectedSchool, matches, summary, selectSchool } = useDashboard();
+  const { state, filters, updateFilters, resetFilters, selectedSchool, matches, summary, selectSchool, usingUploads, uploads, uploadedRows, uploadSettings } = useDashboard();
   const [layers, setLayers] = useState(INITIAL_LAYERS), [showLayers, setShowLayers] = useState(false), [showFilters, setShowFilters] = useState(false);
   const [hotset, setHotset] = useState('hot-all-recent'), [trafficYear, setTrafficYear] = useState(2025), [selecting, setSelecting] = useState(false);
   const [playing, setPlaying] = useState(false), [layerErrors, setLayerErrors] = useState<Record<string, string>>({}), [tileError, setTileError] = useState(false);
@@ -106,16 +117,17 @@ export default function MapPage() {
     updateFilters({ startYear: start, endYear: start }); setPlaying(true);
   };
   const fitSchools = () => { selectSchool('all'); const points = (state.data?.schools || []).map(s => [s.lat, s.lon] as [number, number]); if (points.length) map?.fitBounds(points, { padding: [50, 70] }); else map?.setView([41.14, -104.80], 13); };
-  const resetMap = () => { setPlaying(false); setSelecting(false); map?.stop(); fitSchools(); resetFilters(); };
+  const resetMap = () => { setPlaying(false); setSelecting(false); resetFilters(); };
+  const fitActiveUploads = () => { const bounds = layerBounds(uploads); if (bounds) map?.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [50, 80], maxZoom: 16 }); };
   const fullscreenMap = () => { setFullscreen(value => !value); window.setTimeout(() => map?.invalidateSize(), 30); };
   const visibleSchools = state.data?.schools.filter(s => filters.level === 'all' || filters.level === s.level) || [];
   const schoolBufferCenters = useMemo<SchoolBufferCenter[]>(
-    () => (state.data?.schools || [])
-      .filter(s => filters.level === 'all' || s.level === filters.level)
+    () => visibleSchools
+      .filter(s => filters.schoolId === 'all' || filters.schoolId === s.id)
       .map(s => [s.lon, s.lat]),
-    [state.data?.schools, filters.level],
+    [visibleSchools, filters.schoolId],
   );
-  const hasFilters = serializeFilters(filters) !== '';
+  const hasFilters = usingUploads ? Boolean(filters.bounds || uploadSettings.categoryValue || uploadSettings.fromDate || uploadSettings.toDate) : serializeFilters(filters) !== '';
   return <main id="main-content" className={`map-page${fullscreen ? ' map-expanded' : ''}`}>
     <h1 className="sr-only">Map</h1>
     <MapContainer center={[41.145, -104.80]} zoom={13} zoomControl={false} preferCanvas={true} className="leaflet-map" aria-label="Cheyenne school safety map">
@@ -124,8 +136,9 @@ export default function MapPage() {
       <MapBridge onMap={setMapRef} />
       <BoxSelection active={selecting} onFinish={finishSelection} onCancel={cancelSelection} />
       {filters.bounds && <Rectangle bounds={[[filters.bounds.south, filters.bounds.west], [filters.bounds.north, filters.bounds.east]]} pathOptions={{ color: '#806345', weight: 2, dashArray: '5 4', fillOpacity: 0.025 }} interactive={false} />}
-      {ready && <>
-        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: selectedSchool?.id === s.id ? '#996d20' : '#9c824f', weight: selectedSchool?.id === s.id ? 2 : 1.2, dashArray: '5 5', fillOpacity: 0.055 }} interactive={false} />)}</Pane>
+      {usingUploads && <UploadedMapLayers />}
+      {ready && !usingUploads && <>
+        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.filter(s => filters.schoolId === 'all' || filters.schoolId === s.id).map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: selectedSchool?.id === s.id ? '#996d20' : '#9c824f', weight: selectedSchool?.id === s.id ? 2 : 1.2, dashArray: '5 5', fillOpacity: 0.055 }} interactive={false} />)}</Pane>
         {INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <RemoteLayer key={l.id} layerKey={l.id} trafficYear={trafficYear} onStatus={layerStatus} />)}
         <Pane name="speed-limits" style={{ zIndex: 420 }}>{layers.speed && <RemoteLayer layerKey="speed" trafficYear={trafficYear} onStatus={layerStatus} onSpeedCategories={setSpeedCategories} schoolBufferCenters={schoolBufferCenters} schoolBufferFt={filters.bufferFt} />}</Pane>
         {layers.hotspots && <RemoteLayer layerKey={hotset} trafficYear={trafficYear} onStatus={layerStatus} />}
@@ -140,9 +153,9 @@ export default function MapPage() {
     </MapContainer>
     <div className="map-top-controls">
       <button className={`button filter-toggle${showFilters ? ' active' : ''}`} aria-label="Filters" aria-expanded={showFilters} aria-controls="dashboard-filters" onClick={() => { setShowFilters(value => !value); setShowLayers(false); }}><SlidersHorizontal size={14} /><span>Filters</span></button>
-      <SearchSchools />
-      <div className="map-count" title="Unique school-linked crashes under the current filters" aria-live="polite"><strong data-testid="unique-crash-count">{ready ? summary.total.toLocaleString() : '—'}</strong><span>crashes</span></div>
-      <button className="button reset-control" aria-label="Reset map and filters" title="Reset map and filters" onClick={resetMap}><RotateCcw size={14} /><span>Reset</span></button>
+      {usingUploads ? <div className="upload-map-label"><Layers size={14} /><span>Uploaded files</span></div> : <SearchSchools />}
+      <div className="map-count" title={usingUploads ? "Filtered features in enabled uploaded layers" : "Unique school-linked crashes under the current filters"} aria-live="polite"><strong data-testid={usingUploads ? 'uploaded-feature-count' : 'unique-crash-count'}>{usingUploads ? uploadedRows.length.toLocaleString() : ready ? summary.total.toLocaleString() : '—'}</strong><span>{usingUploads ? 'features' : 'crashes'}</span></div>
+      <button className="button reset-control" aria-label="Reset map and filters" title="Reset filters" onClick={resetMap}><RotateCcw size={14} /><span>Reset</span></button>
       <button ref={layerButton} className={`button layer-button${showLayers ? ' active' : ''}`} aria-label="Layers" aria-expanded={showLayers} aria-controls="map-layers" onClick={() => { setShowLayers(value => !value); setShowFilters(false); }}><Layers size={14} /><span>Layers</span><ChevronDown size={12} /></button>
     </div>
     <FilterDrawer open={showFilters} onClose={closeFilters} />
@@ -150,20 +163,23 @@ export default function MapPage() {
     <div className={`map-notice${hasFilters && !showFilters ? ' with-filters' : ''}`}><DatasetNotice compact /></div>
     {showLayers && <div ref={layerPanel} id="map-layers" className="layer-panel"><div className="layer-panel-title"><strong>Layers</strong><button className="icon-button" aria-label="Close map layers" onClick={() => setShowLayers(false)}><X size={15} /></button></div>
       <fieldset className="basemap-options"><legend className="field-eyebrow"><Mountain size={13} />Basemap</legend>{(Object.entries(BASEMAPS) as [BasemapId, typeof basemap][]).map(([id, item]) => <label className={`basemap-option${id === basemapId ? ' selected' : ''}`} key={id}><input type="radio" name="basemap" value={id} checked={id === basemapId} onChange={() => changeBasemap(id)} /><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}</fieldset>
-      <fieldset disabled={!ready}>
+      <UploadedLayerList />
+      {!usingUploads && <><fieldset disabled={!ready}>
       <span className="field-eyebrow">Schools and crashes</span>{([{ id: 'schools', label: 'School locations' }, { id: 'zones', label: 'Proximity buffers' }, { id: 'crashes', label: 'Crash points' }, { id: 'hotspots', label: 'Statistical hotspots · Gi*' }] as const).map(l => <label className="checkbox-row" key={l.id}><input type="checkbox" checked={layers[l.id]} onChange={() => toggleLayer(l.id)} /><span>{l.label}</span></label>)}
       {layers.hotspots && <><label className="sr-only" htmlFor="hotspot-set">Hotspot analysis population</label><select id="hotspot-set" value={hotset} onChange={e => setHotset(e.target.value)}>{HOTSETS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select><p className="field-note">Fixed analysis; crash filters do not apply.</p></>}
       <span className="field-eyebrow layer-section-title">Roads and facilities</span>{INFRA_LAYERS.map(l => <label className="checkbox-row" key={l.id}><input type="checkbox" checked={layers[l.id]} onChange={() => toggleLayer(l.id)} /><i className="layer-swatch" style={{ background: l.color }} /><span>{l.label}</span></label>)}
       {layers.aadt && <label className="field-label" htmlFor="traffic-year">AADT observation year<select aria-label="AADT observation year" id="traffic-year" value={trafficYear} onChange={e => setTrafficYear(Number(e.target.value))}>{[2021, 2022, 2023, 2024, 2025].map(y => <option key={y}>{y}</option>)}</select></label>}
-    </fieldset><p className="field-note">Infrastructure coverage is incomplete.</p></div>}
-    <div className="map-tools" role="group" aria-label="Map tools"><button className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => map?.zoomIn()}><ZoomIn size={16} /></button><button className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => map?.zoomOut()}><ZoomOut size={16} /></button><span className="tool-divider" /><button className="icon-button" aria-label="Fit all school locations" title="Fit schools" onClick={fitSchools}><Crosshair size={16} /></button><button className={`icon-button${selecting ? ' active' : ''}`} disabled={!ready} aria-label="Select a map area" title="Select area" aria-pressed={selecting} onClick={() => { setSelecting(value => !value); setShowFilters(false); setShowLayers(false); }}><SquareDashed size={16} /></button><button className="icon-button" aria-label={fullscreen ? 'Exit expanded map' : 'Expand map'} title={fullscreen ? 'Exit expanded map' : 'Expand map'} onClick={fullscreenMap}><Expand size={15} /></button></div>
+    </fieldset><p className="field-note">Infrastructure coverage is incomplete.</p></>}</div>}
+    <div className="map-tools" role="group" aria-label="Map tools"><button className="icon-button" aria-label="Zoom in" title="Zoom in" onClick={() => map?.zoomIn()}><ZoomIn size={16} /></button><button className="icon-button" aria-label="Zoom out" title="Zoom out" onClick={() => map?.zoomOut()}><ZoomOut size={16} /></button><span className="tool-divider" /><button className="icon-button" aria-label={usingUploads ? "Fit active uploaded layers" : "Fit all school locations"} title={usingUploads ? "Fit layers" : "Fit schools"} onClick={usingUploads ? fitActiveUploads : fitSchools}><Crosshair size={16} /></button><button className={`icon-button${selecting ? ' active' : ''}`} disabled={!ready && !usingUploads} aria-label="Select a map area" title="Select area" aria-pressed={selecting} onClick={() => { setSelecting(value => !value); setShowFilters(false); setShowLayers(false); }}><SquareDashed size={16} /></button><button className="icon-button" aria-label={fullscreen ? 'Exit expanded map' : 'Expand map'} title={fullscreen ? 'Exit expanded map' : 'Expand map'} onClick={fullscreenMap}><Expand size={15} /></button></div>
     {selecting && <div className="selection-hint" role="status"><MousePointer2 size={13} />Select two corners · Esc to cancel<button className="icon-button" onClick={cancelSelection} aria-label="Cancel area selection"><X size={13} /></button></div>}
-    <div className="map-legend-stack">
-      <DismissibleDetails className="map-legend"><summary>Legend<ChevronDown size={12} /></summary><div>{layers.schools && <span><i className="legend-school" />School</span>}{layers.zones && <span><i className="legend-zone" />{filters.bufferFt.toLocaleString()} ft buffer</span>}{layers.crashes && SEVERITY_GROUPS.map(s => <span key={s.id}><i style={{ background: s.color }} />{s.label}</span>)}{layers.crashes && <span><i className="legend-ring" />Pedestrian / bicycle</span>}{layers.hotspots && <><span><i className="legend-hot" />Significant hot cell</span><span className="legend-note">Fixed population · adjusted p &lt; 0.05</span></>}{INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <span key={l.id}><i style={{ background: l.color, borderRadius: 2 }} />{l.label}</span>)}{layers.aadt && <span className="legend-note">Darker / wider = higher AADT · {trafficYear}</span>}</div></DismissibleDetails>
-      {layers.speed && <DismissibleDetails className="map-legend"><summary>Speed limits<ChevronDown size={12} /></summary><div>{speedCategories === null ? <span className="legend-note">Loading speed limits…</span> : speedCategories.length ? speedCategories.map(category => <span key={category.label}><i className={`legend-speed-limit${category.schoolZoneAssumption ? ' school-zone-assumption' : ''}`} style={category.schoolZoneAssumption ? { borderTop: `3px dashed ${category.color}` } : { background: category.color }} />{category.label}</span>) : <span className="legend-note">No speed-limit values available.</span>}<span className="legend-note">WYDOT and Laramie County GIS Cooperative inventories; coverage is incomplete. County value 0 is unspecified, not 0 mph.</span><span className="legend-note">20 mph is an analysis assumption within the selected-distance buffers around displayed schools, not verified posted signage. Popups retain the source value.</span></div></DismissibleDetails>}
-    </div>
-    {Object.keys(layerErrors).length > 0 && <div className="layer-error" role="alert">Layer unavailable. Toggle it to retry.</div>}
+    {usingUploads ? <DismissibleDetails className="map-legend"><summary>Legend<ChevronDown size={12} /></summary><div>{uploads.filter(l => l.enabled).map(l => <span key={l.id}><i style={{ background: l.color }} />{l.name}</span>)}</div></DismissibleDetails> : <>
+      <div className="map-legend-stack">
+        <DismissibleDetails className="map-legend"><summary>Legend<ChevronDown size={12} /></summary><div>{layers.schools && <span><i className="legend-school" />School</span>}{layers.zones && <span><i className="legend-zone" />{filters.bufferFt.toLocaleString()} ft buffer</span>}{layers.crashes && SEVERITY_GROUPS.map(s => <span key={s.id}><i style={{ background: s.color }} />{s.label}</span>)}{layers.crashes && <span><i className="legend-ring" />Pedestrian / bicycle</span>}{layers.hotspots && <><span><i className="legend-hot" />Significant hot cell</span><span className="legend-note">Fixed population · adjusted p &lt; 0.05</span></>}{INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <span key={l.id}><i style={{ background: l.color, borderRadius: 2 }} />{l.label}</span>)}{layers.aadt && <span className="legend-note">Darker / wider = higher AADT · {trafficYear}</span>}</div></DismissibleDetails>
+        {layers.speed && <DismissibleDetails className="map-legend"><summary>Speed limits<ChevronDown size={12} /></summary><div>{speedCategories === null ? <span className="legend-note">Loading speed limits…</span> : speedCategories.length ? speedCategories.map(category => <span key={category.label}><i className={`legend-speed-limit${category.schoolZoneAssumption ? ' school-zone-assumption' : ''}`} style={category.schoolZoneAssumption ? { borderTop: `3px dashed ${category.color}` } : { background: category.color }} />{category.label}</span>) : <span className="legend-note">No speed-limit values available.</span>}<span className="legend-note">WYDOT and Laramie County GIS Cooperative inventories; coverage is incomplete. County value 0 is unspecified, not 0 mph.</span><span className="legend-note">20 mph is an analysis assumption within the selected-distance buffers around displayed schools, not verified posted signage. Popups retain the source value.</span></div></DismissibleDetails>}
+      </div>
+      {Object.keys(layerErrors).length > 0 && <div className="layer-error" role="alert">Layer unavailable. Toggle it to retry.</div>}
+    </>}
     {tileError && <div className="tile-error" role="status">Basemap unavailable.</div>}
-    <div className="timeline"><button className={`play-button${playing ? ' playing' : ''}`} disabled={!ready} aria-label={playing ? 'Stop year playback' : 'Play years'} onClick={startPlayback}>{playing ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}</button><div className="timeline-label"><strong>{filters.startYear === filters.endYear ? filters.startYear : `${filters.startYear}–${filters.endYear}`}{filters.endYear === 2026 ? '*' : ''}</strong></div><div className="timeline-sliders"><label className="sr-only" htmlFor="timeline-start">Timeline start year</label><input id="timeline-start" type="range" min="1994" max="2026" value={filters.startYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ startYear: Math.min(Number(e.target.value), current.endYear) }))} /><label className="sr-only" htmlFor="timeline-end">Timeline end year</label><input id="timeline-end" type="range" min="1994" max="2026" value={filters.endYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ endYear: Math.max(Number(e.target.value), current.startYear) }))} /><div className="timeline-ticks"><span>1994</span><span>2026*</span></div></div></div>
+    {!usingUploads && <div className="timeline"><button className={`play-button${playing ? ' playing' : ''}`} disabled={!ready} aria-label={playing ? 'Stop year playback' : 'Play years'} onClick={startPlayback}>{playing ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}</button><div className="timeline-label"><strong>{filters.startYear === filters.endYear ? filters.startYear : `${filters.startYear}–${filters.endYear}`}{filters.endYear === 2026 ? '*' : ''}</strong></div><div className="timeline-sliders"><label className="sr-only" htmlFor="timeline-start">Timeline start year</label><input id="timeline-start" type="range" min="1994" max="2026" value={filters.startYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ startYear: Math.min(Number(e.target.value), current.endYear) }))} /><label className="sr-only" htmlFor="timeline-end">Timeline end year</label><input id="timeline-end" type="range" min="1994" max="2026" value={filters.endYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ endYear: Math.max(Number(e.target.value), current.startYear) }))} /><div className="timeline-ticks"><span>1994</span><span>2026*</span></div></div></div>}
   </main>;
 }
