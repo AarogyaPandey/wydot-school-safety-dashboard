@@ -25,3 +25,8 @@ Approval to build is not permission to redistribute supplied datasets. No datase
 If raw crash points are ever authorized for a private hosted deployment, use actual server-side access control and a separately reviewed data service. Do not expose or tunnel the local research Vite server.
 
 WYDOT’s [crash data guidance](https://www.dot.state.wy.us/home/dot_safety/crash-data.html) offers public reports and additional-data requests; it does not provide a redistribution grant for this supplied extract. Basemap use follows the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/); automated QA intercepts tiles rather than fetching map areas.
+
+
+## User-provided GeoJSON
+
+The Upload control reads user-selected files in browser memory through the File API. It makes no upload request, stores no imported content in browser storage or source control, and adds no bundled datasets or research endpoints to production. The public source-data manifest stays withheld. Users may inspect their own files in a hosted static build; this does not expose the project's neighboring source folders or grant redistribution permission for those sources. Uploaded charts/aggregate downloads are user-derived artifacts; they do not establish authorization or de-identification, and no numerical suppression threshold is invented. Imported geometry/properties are rendered as data, not HTML, and remote data URLs in file properties are never fetched by the importer.

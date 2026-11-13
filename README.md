@@ -29,11 +29,23 @@ Override these with `PHASE2_DASHBOARD_DIR`, `PHASE2_SCHOOLS_FILE`, and optionall
 
 Browser tests can use `BROWSER_EXECUTABLE` for a Chromium executable. Automated QA substitutes test tiles to avoid bulk requests to OpenStreetMap. Screenshots, traces, and test output are ignored because they can contain research data.
 
+## Upload GeoJSON
+
+On **Analytics**, select **Upload** and choose one or more `.geojson` or `.json` files. The **Data** menu lists uploaded layers with on/off switches, removal, and a source selector. The same switches appear in **Map ? Layers**. Enabled layers drive both pages; turning every uploaded layer off leaves the uploaded workspace empty. Choose **Project data** or clear the uploads to return to the original school-safety dataset.
+
+Uploads are read in browser memory only. They are never sent to the server, saved to local storage, copied into the repository, or bundled into a deployment. They persist across page navigation in the current tab and clear on refresh. Uploads also work in the production build with no neighboring Phase 2 folders or Python installation. The original research preview still requires its documented source files and Python.
+
+Supports FeatureCollections or single Features containing WGS 84 longitude/latitude points, lines, polygons, multipart geometries, and GeometryCollections. Null geometry is retained for charts and reported as unmapped. Explicit projected CRS/coordinates and structurally invalid geometries are rejected; the importer does not reproject coordinates or certify polygon topology. Limits: 10 MB/file, 30 MB and 50,000 features across up to 12 layers; up to 250,000 coordinate positions per file.
+
+Uploaded charts describe **features**, without assuming they are crashes or applying the Phase 2 school calendar. They show counts by enabled layer, a selected category, recorded calendar month, and a numeric distribution. **Filters** lets users select the actual fields and filter category values/dates. Numeric strings are not silently converted, and missing values are not treated as zero. Dates use an ISO YYYY-MM-DD prefix, without timezone conversion. Overlapping files may repeat the same records; these feature counts do not claim unique crashes. The map-area query uses bounding-box overlap for lines/polygons. CSV/PNG exports reflect the uploaded selection and its interpretation.
+
+**Reset** clears filters while retaining layer switches, chosen fields, files, and the map's zoom/position. Use the map's Fit control explicitly to change its extent.
+
 ## Data release boundary
 
 The development middleware is enabled only by explicit `research` mode. It rejects non-loopback connections, foreign origins, and cross-site requests; responses use `Cache-Control: no-store`. No research endpoints exist in production. Do not tunnel, proxy, or expose this server to a network. Local browser access displays crash records already available to the project team; it is not protection for a shared computer.
 
-The production build includes **no source datasets**, including schools or infrastructure, until their redistribution terms have been reviewed. It displays unavailable states instead of fabricated data. Public asset paths are allowlisted by the release audit. There is no deployment configuration, automatic commit, or publishing step. A future approved release requires an explicit manifest/schema implementation, not a client-side permission toggle.
+The production build includes **no project source datasets**, including schools or infrastructure, until their redistribution terms have been reviewed. Users can independently load their own GeoJSON into the browser-only workspace. It displays unavailable states instead of fabricated data. Public asset paths are allowlisted by the release audit. There is no deployment configuration, automatic commit, or publishing step. A future approved release requires an explicit manifest/schema implementation, not a client-side permission toggle.
 
 CSV exports contain filtered **aggregate counts**, never crash records. PNG exports include the chart title, unique-crash count, selected scope, and a short count-interpretation note. Institutional branding and review-status watermarks are omitted. Exports from the research preview are research artifacts and are not cleared for redistribution.
 

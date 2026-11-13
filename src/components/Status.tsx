@@ -2,7 +2,8 @@ import { AlertCircle, AlertTriangle, Database, RefreshCw } from 'lucide-react';
 import { useDashboard } from '../app/DashboardContext';
 
 export function DatasetNotice({ compact = false }: { compact?: boolean }) {
-  const { state, retry, filters, selectedSchool } = useDashboard();
+  const { state, retry, filters, selectedSchool, usingUploads } = useDashboard();
+  if (usingUploads) return null;
   if (state.status === 'loading') return <div className={`data-notice ${compact ? 'compact' : ''}`} role="status"><span className="spinner" /><span>Loading data…</span></div>;
   if (state.status === 'error') return <div className="data-notice error" role="alert"><AlertCircle size={15} /><div><strong>Data could not be loaded.</strong><details><summary>Details</summary><p>{state.message}</p></details><button className="text-button" onClick={retry}><RefreshCw size={12} />Retry</button></div></div>;
   if (state.status === 'withheld') return <div className={`data-notice withheld ${compact ? 'compact' : ''}`} role="status"><Database size={15} /><span>Data unavailable in this build.</span></div>;
