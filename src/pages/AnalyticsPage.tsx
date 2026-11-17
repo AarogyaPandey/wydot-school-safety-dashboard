@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowDownToLine, ArrowRight, ArrowUpDown, Check, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { useLatestFilterLink } from '../app/useLatestFilterLink';
 import { useDashboard } from '../app/DashboardContext';
 import { FilterDrawer, FilterSummary } from '../components/Filters';
 import { Kpis } from '../components/Kpis';
@@ -17,6 +18,7 @@ import { SEVERITY_GROUPS, TIME_LABELS } from '../domain/types';
 export default function AnalyticsPage() {
   const { state, filters, matches, schoolCounts, selectedSchool, selectSchool, resetFilters, summary, usingUploads, uploadedRows, uploads, uploadSettings } = useDashboard();
   const location = useLocation();
+  const preserveFilters = useLatestFilterLink();
   const [showFilters, setShowFilters] = useState(false), [tab, setTab] = useState('overview'), [search, setSearch] = useState(''), [sort, setSort] = useState<'name' | 'crashes'>('crashes'), [exported, setExported] = useState(false);
   const ready = usingUploads || state.status === 'ready';
   const closeFilters = useCallback(() => setShowFilters(false), []);
@@ -43,7 +45,7 @@ export default function AnalyticsPage() {
   return <main id="main-content" className="analytics-page">
     <h1 className="sr-only">Analytics</h1>
     <FilterDrawer open={showFilters} onClose={closeFilters} />
-    <div className="analytics-toolbar"><button className={`button filter-toggle${showFilters ? ' active' : ''}`} aria-label="Filters" aria-expanded={showFilters} aria-controls="dashboard-filters" onClick={() => setShowFilters(value => !value)}><SlidersHorizontal size={14} /><span>Filters</span></button><FilterSummary /><div className="analytics-toolbar-actions"><UploadControl /><Link to={`/map${location.search}`} className="button quiet">Map<ArrowRight size={13} /></Link><button className="button quiet reset-control" aria-label="Reset analytics filters" title="Reset filters" onClick={resetFilters}><RotateCcw size={14} /><span>Reset</span></button><button className="button primary" aria-label="Export aggregate CSV" disabled={!ready} onClick={csvExport}>{exported ? <Check size={14} /> : <ArrowDownToLine size={14} />}<span>{exported ? 'Downloaded' : 'CSV'}</span></button></div></div>
+    <div className="analytics-toolbar"><button className={`button filter-toggle${showFilters ? ' active' : ''}`} aria-label="Filters" aria-expanded={showFilters} aria-controls="dashboard-filters" onClick={() => setShowFilters(value => !value)}><SlidersHorizontal size={14} /><span>Filters</span></button><FilterSummary /><div className="analytics-toolbar-actions"><UploadControl /><Link to={`/map${location.search}`} onClick={preserveFilters} className="button quiet">Map<ArrowRight size={13} /></Link><button className="button quiet reset-control" aria-label="Reset analytics filters" title="Reset filters" onClick={resetFilters}><RotateCcw size={14} /><span>Reset</span></button><button className="button primary" aria-label="Export aggregate CSV" disabled={!ready} onClick={csvExport}>{exported ? <Check size={14} /> : <ArrowDownToLine size={14} />}<span>{exported ? 'Downloaded' : 'CSV'}</span></button></div></div>
     <div className="analytics-workspace">
       <DatasetNotice compact />{usingUploads ? <UploadedAnalytics /> : <><Kpis />
       <div className="analytics-tabs" role="group" aria-label="Analytics views">{[{ id: 'overview', label: 'Overview' }, { id: 'schools', label: 'Schools' }, { id: 'phase2', label: 'Statistical results' }].map(t => <button key={t.id} className={tab === t.id ? 'active' : ''} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}</div>

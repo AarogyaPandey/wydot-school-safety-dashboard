@@ -182,7 +182,7 @@ test('basemaps preserve filters and visible reset controls restore the default s
   await page.locator('.analytics-toolbar-actions').getByRole('link', { name: 'Map', exact: true }).click();
   await page.getByRole('button', { name: 'Layers', exact: true }).click();
   await expect(page.getByRole('radio', { name: /Aerial/ })).toBeChecked();
-  await page.getByRole('radio', { name: /Streets/ }).check();
+  await page.getByRole('radio', { name: /Light Gray/ }).check();
   await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap');
   await page.getByRole('button', { name: 'Close map layers' }).click();
   await page.getByRole('button', { name: 'Filters', exact: true }).click();

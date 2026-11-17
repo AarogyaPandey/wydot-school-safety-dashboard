@@ -71,7 +71,23 @@ describe('shared URL filters and aggregate exports', () => {
   it('round-trips a view, including no selected severity and a map query', () => {
     const f = { ...DEFAULT_FILTERS, schoolId: 'fixture-west', severities: [], bounds: { south: 41.1, west: -104.9, north: 41.2, east: -104.7 } };
     expect(parseFilters(serializeFilters(f))).toEqual(f);
-    expect(parseFilters('?from=2026&to=1994&buffer=999&time=bad&bounds=hello')).toMatchObject({ startYear: 1994, endYear: 2026, bufferFt: 1000, time: 'all', bounds: null });
+    expect(parseFilters('?from=2026&to=1994&buffer=999&time=bad&bounds=hello')).toMatchObject({ startYear: 1994, endYear: 2026, bufferFt: 999, time: 'all', bounds: null });
+  });
+  it('defaults to one quarter mile and preserves custom distances within the delivered coverage', () => {
+    expect(DEFAULT_FILTERS.bufferFt).toBe(1320);
+    expect(parseFilters('').bufferFt).toBe(1320);
+    expect(serializeFilters(DEFAULT_FILTERS)).toBe('');
+    for (const bufferFt of [1, 499, 750, 949, 950, 1000, 1319, 1320]) {
+      const view = { ...DEFAULT_FILTERS, bufferFt };
+      expect(parseFilters(serializeFilters(view)).bufferFt).toBe(bufferFt);
+    }
+    for (const buffer of ['0', '-20', '1321', '5280', '1.5', 'NaN', 'Infinity', '']) expect(parseFilters(`?buffer=${buffer}`).bufferFt).toBe(1320);
+    const matches = selectMatches(fixtureDataset, { ...DEFAULT_FILTERS, bufferFt: 949 });
+    expect(matches).toHaveLength(1);
+    expect(matches[0].links.map(l => l.schoolId)).toEqual(['fixture-west']);
+    expect(selectMatches(fixtureDataset, { ...DEFAULT_FILTERS, bufferFt: 950 })[0].links).toHaveLength(2);
+    const view = { ...DEFAULT_FILTERS, bufferFt: 750 };
+    expect(buildAggregateCsv(matches, [], view)).toContain('distance 750 ft');
   });
   it('exports contextual aggregates and no crash-level IDs, locations, dates, or times', () => {
     const matches = selectMatches(fixtureDataset, DEFAULT_FILTERS);

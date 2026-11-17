@@ -13,7 +13,7 @@ function bindPopup(feature: Feature, leafletLayer: Layer, filename: string) {
     row.append(label, document.createTextNode(text.length > 300 ? text.slice(0, 300) + '…' : text)); node.append(row);
   }
   if (!entries.length) { const row = document.createElement('p'); row.textContent = 'No attributes'; node.append(row); }
-  leafletLayer.bindPopup(node, { maxHeight: 260, maxWidth: 330 });
+  leafletLayer.bindPopup(node, { pane: 'popupPane', maxHeight: 260, maxWidth: 330 });
 }
 function UploadedMapLayer({ layer, data }: { layer: UploadedLayer; data: FeatureCollection }) {
   const ref = useRef<LeafletGeoJSON>(null);

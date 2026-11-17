@@ -15,6 +15,8 @@ The original inputs are unavailable in this checkout; Phase 3 consumes the exist
 
 Default period is complete years 2016–2025. All statistics on the overview refer to school-linked records only. 2026 can be selected but remains explicitly incomplete. Unknown involvement is not interpreted as false.
 
+The default school distance is ¼ mile (1,320 ft). Users may apply any whole-foot distance from 1 to 1,320 ft. The upper limit matches the delivered relationship export; larger distances would omit unknown outside records and are rejected. The chosen distance is shared by the map, interactive counts/charts, road styling, URL, and exports. Reset restores 1,320 ft without changing map extent. Saved Phase 2 inference retains its original stated distances.
+
 Distances use the original rounded `dist_ft`; Phase 3 does not pretend to recover unrounded distances. Display circles use the US survey foot conversion to meters. Leaflet circles are context graphics, not a new regulatory zone dataset or exact reproduction of the projected R buffer at sub-foot precision.
 
 ## Local time and school assumptions
@@ -39,4 +41,4 @@ Speed exposure results are withheld because every supplied per-million-vehicle-m
 
 ## Exports
 
-CSV contains aggregate dimensions (overall/year/hour/severity/school), filter context, research status, and coverage caveats. It contains no crash IDs, exact coordinates, incident dates, or minute times. Cells are escaped and spreadsheet formulas neutralized. PNG contains chart data, research status, context, and interpretation caveats. Both are local research artifacts pending redistribution review.
+CSV contains aggregate dimensions (overall/year/hour/severity/school), filter context, research status, and coverage caveats. It contains no crash IDs, exact coordinates, incident dates, or minute times. Cells are escaped and spreadsheet formulas neutralized. PNG contains chart data, filter context, and interpretation caveats; it does not carry an institutional footer or research-review watermark. Both are local research artifacts pending redistribution review.

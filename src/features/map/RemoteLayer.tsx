@@ -67,6 +67,6 @@ export default function RemoteLayer({ layerKey, trafficYear, onStatus, onSpeedCa
   }, [layerKey, trafficYear, onStatus, onSpeedCategories, schoolBufferCenters, schoolBufferFt]);
   if (!data) return null;
   const speedCategories = layerKey === 'speed' ? speedLimitCategories(data.features) : [];
-  const popupOptions = layerKey === 'speed' ? { autoPanPaddingTopLeft: [16, 130] as [number, number], autoPanPaddingBottomRight: [270, 110] as [number, number] } : undefined;
+  const popupOptions = { pane: 'popupPane', ...(layerKey === 'speed' ? { autoPanPaddingTopLeft: [16, 130] as [number, number], autoPanPaddingBottomRight: [270, 110] as [number, number] } : {}) };
   return <GeoJSON key={`${layerKey}:${trafficYear}`} data={data} style={feature => style(feature, layerKey, speedCategories)} pointToLayer={(_feature, ll) => circleMarker(ll, { radius: 4, color: '#79559c', weight: 2, fillColor: '#ffffff', fillOpacity: 1 })} onEachFeature={(feature: Feature, layer: Layer) => layer.bindPopup(popup(feature, layerKey), popupOptions)} />;
 }

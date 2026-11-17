@@ -1,8 +1,29 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import UploadedFilters from '../features/uploads/UploadedFilters';
 import { useDashboard } from '../app/DashboardContext';
 import { SCHOOL_LEVELS, SEVERITY_GROUPS, TIME_LABELS, type Filters as FilterValues } from '../domain/types';
+import { isValidBufferFt, MAX_BUFFER_FT, MIN_BUFFER_FT } from '../domain/filters';
+
+function BufferDistance() {
+  const { filters, updateFilters } = useDashboard();
+  const [draft, setDraft] = useState(String(filters.bufferFt)), [error, setError] = useState('');
+  useEffect(() => { setDraft(String(filters.bufferFt)); setError(''); }, [filters.bufferFt]);
+  return <>
+    <span className="field-label" id="buffer-label">Distance from school</span>
+    <div className="segmented" role="group" aria-labelledby="buffer-label">{[500, 1000, 1320].map(buffer => <button type="button" key={buffer} aria-pressed={filters.bufferFt === buffer} className={filters.bufferFt === buffer ? 'selected' : ''} onClick={() => { setDraft(String(buffer)); setError(''); updateFilters({ bufferFt: buffer }); }}>{buffer === 1320 ? '¼ mile' : `${buffer.toLocaleString()} ft`}</button>)}</div>
+    <form className="buffer-distance-form" noValidate onSubmit={event => {
+      event.preventDefault(); const value = Number(draft);
+      if (!isValidBufferFt(value)) { setError('Enter a whole number from 1 to 1,320 ft.'); return; }
+      setError(''); updateFilters({ bufferFt: value });
+    }}>
+      <label className="field-label" htmlFor="custom-buffer">Custom distance (ft)</label>
+      <div className="buffer-distance-row"><input id="custom-buffer" type="number" inputMode="numeric" min={MIN_BUFFER_FT} max={MAX_BUFFER_FT} step="1" required value={draft} aria-invalid={Boolean(error)} aria-describedby={error ? 'buffer-error buffer-coverage' : 'buffer-coverage'} onChange={event => { setDraft(event.target.value); setError(''); }} /><button className="button" type="submit">Apply</button></div>
+      {error && <p id="buffer-error" className="inline-error" role="alert">{error}</p>}
+    </form>
+    <p id="buffer-coverage" className="field-note">Crash coverage: 1–1,320 ft. Proximity buffers; not regulatory zones.</p>
+  </>;
+}
 
 export function FilterPanel({ onClose }: { onClose?: () => void }) {
   const { state, filters, updateFilters } = useDashboard();
@@ -15,9 +36,7 @@ export function FilterPanel({ onClose }: { onClose?: () => void }) {
         <div className="select-wrap"><select id="school-filter" value={filters.schoolId} onChange={e => updateFilters({ schoolId: e.target.value, level: 'all' })}><option value="all">All schools</option>{state.data?.schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown size={15} /></div>
         <label className="field-label" htmlFor="level-filter">School level</label>
         <div className="select-wrap"><select id="level-filter" value={filters.level} onChange={e => updateFilters({ level: e.target.value as FilterValues['level'], schoolId: 'all' })}><option value="all">All levels</option>{SCHOOL_LEVELS.map(level => <option key={level}>{level}</option>)}</select><ChevronDown size={15} /></div>
-        <span className="field-label" id="buffer-label">Distance from school</span>
-        <div className="segmented" role="group" aria-labelledby="buffer-label">{([500, 1000, 1320] as const).map(buffer => <button type="button" key={buffer} aria-pressed={filters.bufferFt === buffer} className={filters.bufferFt === buffer ? 'selected' : ''} onClick={() => updateFilters({ bufferFt: buffer })}>{buffer === 1320 ? '¼ mile' : `${buffer.toLocaleString()} ft`}</button>)}</div>
-        <p className="field-note">Proximity buffers; not regulatory zone boundaries.</p>
+        <BufferDistance />
       </div>
       <div className="filter-section"><span className="field-eyebrow">Time</span>
         <div className="year-inputs"><label className="field-label" htmlFor="start-year">From<select aria-label="From year" id="start-year" value={filters.startYear} onChange={e => updateFilters(current => ({ startYear: Number(e.target.value), endYear: Math.max(Number(e.target.value), current.endYear) }))}>{Array.from({ length: 33 }, (_, i) => 1994 + i).map(y => <option key={y} value={y}>{y}{y === 2026 ? ' · partial' : ''}</option>)}</select></label>

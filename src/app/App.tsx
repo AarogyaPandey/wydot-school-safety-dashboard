@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, Component, type ErrorInfo, type Re
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BarChart3, BookOpen, Map, School } from 'lucide-react';
 import { DashboardProvider } from './DashboardContext';
+import { useLatestFilterLink } from './useLatestFilterLink';
 
 const MapPage = lazy(() => import('../pages/MapPage'));
 const AnalyticsPage = lazy(() => import('../pages/AnalyticsPage'));
@@ -15,6 +16,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 function Shell() {
   const location = useLocation();
+  const preserveFilters = useLatestFilterLink();
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true), off = () => setOnline(false);
@@ -29,12 +31,12 @@ function Shell() {
   return <>
     <a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="site-header">
-      <NavLink to={`/map${location.search}`} className="brand" aria-label="Cheyenne School Zone Safety home">
+      <NavLink to={`/map${location.search}`} onClick={preserveFilters} className="brand" aria-label="Cheyenne School Zone Safety home">
         <span className="brand-mark"><School size={19} strokeWidth={1.65} /></span>
         <span><strong>School Zone Safety</strong><small>CHEYENNE, WYOMING</small></span>
       </NavLink>
       <nav className="main-nav" aria-label="Main navigation">
-        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
+        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} onClick={preserveFilters} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
       </nav>
     </header>
     {!online && <div className="offline-banner" role="status">You’re offline. Loaded data remains available; basemap tiles and unloaded layers may be unavailable.</div>}

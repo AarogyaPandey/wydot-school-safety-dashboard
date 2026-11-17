@@ -37,7 +37,7 @@ export type Bounds = { south: number; west: number; north: number; east: number 
 export type SeverityGroup = 'fatal-serious' | 'minor-possible' | 'pdo' | 'unknown';
 export type TimeFilter = 'all' | 'arrival' | 'dismissal' | 'early' | 'morning' | 'afternoon' | 'night';
 export type Filters = {
-  schoolId: string; level: SchoolLevel | 'all'; bufferFt: 500 | 1000 | 1320;
+  schoolId: string; level: SchoolLevel | 'all'; bufferFt: number;
   startYear: number; endYear: number; severities: SeverityGroup[];
   involvement: 'all' | 'ped-bike' | 'pedestrian' | 'cyclist' | 'unknown';
   schoolDays: boolean; time: TimeFilter; bounds: Bounds | null;
@@ -45,10 +45,10 @@ export type Filters = {
 export type MatchedCrash = { crash: Crash; links: CrashSchoolLink[] };
 export type SchoolCount = { school: School; crashes: number; fatalSerious: number; pedBike: number };
 export const SEVERITY_GROUPS: { id: SeverityGroup; label: string; color: string }[] = [
-  { id: 'fatal-serious', label: 'Fatal or serious injury', color: '#9c3d35' },
-  { id: 'minor-possible', label: 'Minor or possible injury', color: '#d88c50' },
-  { id: 'pdo', label: 'Property damage only', color: '#31857b' },
-  { id: 'unknown', label: 'Unknown severity', color: '#919b9a' },
+  { id: 'fatal-serious', label: 'Fatal or serious injury', color: '#c2414b' },
+  { id: 'minor-possible', label: 'Minor or possible injury', color: '#df9b35' },
+  { id: 'pdo', label: 'Property damage only', color: '#397eb4' },
+  { id: 'unknown', label: 'Unknown severity', color: '#94a3b8' },
 ];
 export const SEVERITY_LABELS: Record<Severity, string> = {
   fatal: 'Fatal injury', serious: 'Suspected serious injury', minor: 'Suspected minor injury',

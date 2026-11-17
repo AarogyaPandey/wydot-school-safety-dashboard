@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, CircleMarker, MapContainer, Marker, Pane, Popup, Rectangle, ScaleControl, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Marker, Pane, Popup, Rectangle, ScaleControl, TileLayer, Tooltip, useMapEvents } from 'react-leaflet';
 import { divIcon, svg, type LatLngExpression, type Map as LeafletMap } from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ArrowUpRight, ChevronDown, Crosshair, Expand, Layers, MapPin, Mountain, MousePointer2, Pause, Play, RotateCcw, School as SchoolIcon, Search, SlidersHorizontal, SquareDashed, X, ZoomIn, ZoomOut } from 'lucide-react';
@@ -21,14 +21,22 @@ type LayerState = { schools: boolean; zones: boolean; crashes: boolean; hotspots
 const INITIAL_LAYERS: LayerState = { schools: true, zones: true, crashes: true, hotspots: false, crosswalks: false, sidewalks: false, signals: false, speed: false, aadt: false, roads: false };
 const INFRA_LAYERS = [{ id: 'crosswalks', label: 'Crosswalks', color: '#664b9f' }, { id: 'sidewalks', label: 'Sidewalks', color: '#4b8b58' }, { id: 'signals', label: 'Pedestrian signals', color: '#79559c' }, { id: 'speed', label: 'Posted speed limits', color: '#aa6d24' }, { id: 'aadt', label: 'Traffic volume · AADT', color: '#3585aa' }, { id: 'roads', label: 'Road classification', color: '#c99b43' }] as const;
 const HOTSETS = [{ key: 'hot-all-recent', label: 'All crashes · 2016–2025' }, { key: 'hot-all-history', label: 'All crashes · 1994–2025' }, { key: 'hot-serious', label: 'Fatal / serious · 1994–2025' }, { key: 'hot-ped-bike', label: 'Pedestrian / bicycle · 2016–2025' }, { key: 'hot-school-day', label: 'School days · 2016–2025' }];
-const schoolIcons = [false, true].map(selected => divIcon({ className: `school-marker-wrapper${selected ? ' is-selected' : ''}`, html: renderToStaticMarkup(<span className="school-map-marker"><SchoolIcon size={14} strokeWidth={1.8} aria-hidden="true" /></span>), iconSize: [22, 22], iconAnchor: [11, 11] }));
-const schoolIcon = (selected: boolean) => schoolIcons[Number(selected)];
+const schoolIcons = new Map<string, ReturnType<typeof divIcon>>();
+function schoolIcon(selected: boolean, size: number) {
+  const key = `${selected}:${size}`;
+  if (!schoolIcons.has(key)) schoolIcons.set(key, divIcon({
+    className: `school-marker-wrapper${selected ? ' is-selected' : ''}`,
+    html: renderToStaticMarkup(<span className={`school-map-marker${size <= 10 ? ' is-compact' : ''}`}><SchoolIcon size={14} strokeWidth={1.8} aria-hidden="true" /></span>),
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -size / 2], tooltipAnchor: [0, -size / 2],
+  }));
+  return schoolIcons.get(key)!;
+}
 const crashPointRenderer = svg({ pane: 'crash-points' });
 
-function MapBridge({ onMap }: { onMap: (map: LeafletMap) => void }) {
-  const map = useMap(); const { selectedSchool, filters, usingUploads, uploads } = useDashboard();
+function MapBridge({ onMap, onZoom }: { onMap: (map: LeafletMap) => void; onZoom: (zoom: number) => void }) {
+  const map = useMapEvents({ zoomend: () => onZoom(map.getZoom()) }); const { selectedSchool, filters, usingUploads, uploads } = useDashboard();
   const fittedUploads = useRef(false);
-  useEffect(() => { onMap(map); const observer = new ResizeObserver(() => map.invalidateSize({ pan: false })); observer.observe(map.getContainer()); return () => observer.disconnect(); }, [map, onMap]);
+  useEffect(() => { onMap(map); onZoom(map.getZoom()); const observer = new ResizeObserver(() => map.invalidateSize({ pan: false })); observer.observe(map.getContainer()); return () => observer.disconnect(); }, [map, onMap, onZoom]);
   useEffect(() => { if (!usingUploads && selectedSchool) map.flyTo([selectedSchool.lat, selectedSchool.lon], filters.bufferFt === 1320 ? 14 : 15, { duration: 0.6 }); }, [selectedSchool, filters.bufferFt, map, usingUploads]);
   useEffect(() => {
     if (!usingUploads) { fittedUploads.current = false; return; }
@@ -79,11 +87,14 @@ export default function MapPage() {
   const [hotset, setHotset] = useState('hot-all-recent'), [trafficYear, setTrafficYear] = useState(2025), [selecting, setSelecting] = useState(false);
   const [playing, setPlaying] = useState(false), [layerErrors, setLayerErrors] = useState<Record<string, string>>({}), [tileError, setTileError] = useState(false);
   const [map, setMap] = useState<LeafletMap | null>(null), [fullscreen, setFullscreen] = useState(false);
+  const [zoom, setZoom] = useState(13);
   const [speedCategories, setSpeedCategories] = useState<SpeedLimitCategory[] | null>(null);
   const [basemapId, setBasemapId] = useState<BasemapId>(() => {
-    try { const saved = sessionStorage.getItem('school-safety-basemap'); return saved && saved in BASEMAPS ? saved as BasemapId : 'streets'; } catch { return 'streets'; }
+    try { const saved = sessionStorage.getItem('school-safety-basemap'); return saved && Object.hasOwn(BASEMAPS, saved) ? saved as BasemapId : 'streets'; } catch { return 'streets'; }
   });
   const basemap = BASEMAPS[basemapId];
+  const schoolSize = zoom <= 11 ? 8 : zoom <= 12 ? 10 : zoom <= 13 ? 14 : zoom <= 14 ? 18 : 22;
+  const pointRadius = zoom <= 12 ? 2.8 : zoom >= 15 ? 4 : 3.4;
   const layerPanel = useRef<HTMLDivElement>(null), layerButton = useRef<HTMLButtonElement>(null);
   const playbackRange = useRef({ start: filters.startYear, end: filters.endYear });
   const ready = state.status === 'ready';
@@ -131,14 +142,14 @@ export default function MapPage() {
   return <main id="main-content" className={`map-page${fullscreen ? ' map-expanded' : ''}`}>
     <h1 className="sr-only">Map</h1>
     <MapContainer center={[41.145, -104.80]} zoom={13} zoomControl={false} preferCanvas={true} className="leaflet-map" aria-label="Cheyenne school safety map">
-      <TileLayer key={basemapId} url={basemap.url} attribution={basemap.attribution} maxNativeZoom={basemap.maxNativeZoom} maxZoom={19} eventHandlers={{ tileerror: () => setTileError(true), tileload: () => setTileError(false) }} />
+      <TileLayer key={basemapId} url={basemap.url} attribution={basemap.attribution} className={basemapId === 'streets' ? 'subdued-basemap' : ''} opacity={basemapId === 'streets' ? 0.7 : 1} maxNativeZoom={basemap.maxNativeZoom} maxZoom={19} eventHandlers={{ tileerror: () => setTileError(true), tileload: () => setTileError(false) }} />
       <ScaleControl position="bottomleft" imperial={true} metric={false} />
-      <MapBridge onMap={setMapRef} />
+      <MapBridge onMap={setMapRef} onZoom={setZoom} />
       <BoxSelection active={selecting} onFinish={finishSelection} onCancel={cancelSelection} />
       {filters.bounds && <Rectangle bounds={[[filters.bounds.south, filters.bounds.west], [filters.bounds.north, filters.bounds.east]]} pathOptions={{ color: '#806345', weight: 2, dashArray: '5 4', fillOpacity: 0.025 }} interactive={false} />}
       {usingUploads && <UploadedMapLayers />}
       {ready && !usingUploads && <>
-        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.filter(s => filters.schoolId === 'all' || filters.schoolId === s.id).map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: selectedSchool?.id === s.id ? '#996d20' : '#9c824f', weight: selectedSchool?.id === s.id ? 2 : 1.2, dashArray: '5 5', fillOpacity: 0.055 }} interactive={false} />)}</Pane>
+        <Pane name="school-zones" style={{ zIndex: 410 }}>{layers.zones && visibleSchools.filter(s => filters.schoolId === 'all' || filters.schoolId === s.id).map(s => <Circle key={s.id} center={[s.lat, s.lon]} radius={filters.bufferFt * 0.3048006096012192} pathOptions={{ color: '#b08a38', weight: selectedSchool?.id === s.id ? 1.7 : 1.1, opacity: 0.75, dashArray: '4 5', fillColor: '#dfb956', fillOpacity: selectedSchool?.id === s.id ? 0.23 : 0.16 }} interactive={false} />)}</Pane>
         {INFRA_LAYERS.filter(l => l.id !== 'speed' && layers[l.id]).map(l => <RemoteLayer key={l.id} layerKey={l.id} trafficYear={trafficYear} onStatus={layerStatus} />)}
         <Pane name="speed-limits" style={{ zIndex: 420 }}>{layers.speed && <RemoteLayer layerKey="speed" trafficYear={trafficYear} onStatus={layerStatus} onSpeedCategories={setSpeedCategories} schoolBufferCenters={schoolBufferCenters} schoolBufferFt={filters.bufferFt} />}</Pane>
         {layers.hotspots && <RemoteLayer layerKey={hotset} trafficYear={trafficYear} onStatus={layerStatus} />}
@@ -146,9 +157,9 @@ export default function MapPage() {
           const serious = severityGroup(crash.severity) === 'fatal-serious', color = SEVERITY_GROUPS.find(s => s.id === severityGroup(crash.severity))!.color;
           const nearest = links.reduce((a, b) => a.distanceFt <= b.distanceFt ? a : b);
           const school = state.data!.schools.find(s => s.id === nearest.schoolId)!;
-          return <CircleMarker key={crash.id} center={[crash.lat, crash.lon]} radius={serious ? 5.5 : 4} renderer={crashPointRenderer} pathOptions={{ color: '#352f29', weight: isPedBike(crash) ? 1.5 : 1.25, fillColor: color, fillOpacity: 0.95 }}><Tooltip>{SEVERITY_LABELS[crash.severity]} · {crash.year}</Tooltip><Popup><div className="feature-popup"><h3>{SEVERITY_LABELS[crash.severity]}</h3><p>{formatDate(crash.date)} · {formatClock(crash.hhmm)} local time</p><p>{nearest.distanceFt.toLocaleString()} ft from {school.name}</p><p>{isPedBike(crash) ? `Involvement: ${crash.pedestrian ? 'pedestrian' : ''}${crash.pedestrian && crash.cyclist ? ' and ' : ''}${crash.cyclist ? 'bicycle' : ''}` : flagsUnknown(crash) ? 'Pedestrian/bicycle involvement unknown' : 'No pedestrian/bicycle involvement recorded'}</p><p className="muted">{nearest.window} · Assumed calendar and bell times.</p></div></Popup></CircleMarker>;
+          return <CircleMarker key={crash.id} center={[crash.lat, crash.lon]} radius={serious ? pointRadius + 1.6 : pointRadius} renderer={crashPointRenderer} pathOptions={{ color: isPedBike(crash) ? '#243d57' : '#ffffff', weight: isPedBike(crash) ? 1.8 : 0.7, fillColor: color, fillOpacity: serious ? 0.96 : 0.86 }}><Tooltip pane="tooltipPane">{SEVERITY_LABELS[crash.severity]} · {crash.year}</Tooltip><Popup pane="popupPane"><div className="feature-popup"><h3>{SEVERITY_LABELS[crash.severity]}</h3><p>{formatDate(crash.date)} · {formatClock(crash.hhmm)} local time</p><p>{nearest.distanceFt.toLocaleString()} ft from {school.name}</p><p>{isPedBike(crash) ? `Involvement: ${crash.pedestrian ? 'pedestrian' : ''}${crash.pedestrian && crash.cyclist ? ' and ' : ''}${crash.cyclist ? 'bicycle' : ''}` : flagsUnknown(crash) ? 'Pedestrian/bicycle involvement unknown' : 'No pedestrian/bicycle involvement recorded'}</p><p className="muted">{nearest.window} · Assumed calendar and bell times.</p></div></Popup></CircleMarker>;
         })}</Pane>
-        {layers.schools && visibleSchools.map(s => <Marker key={s.id} position={[s.lat, s.lon] as LatLngExpression} icon={schoolIcon(selectedSchool?.id === s.id)} opacity={selectedSchool && selectedSchool.id !== s.id ? 0.55 : 1}><Tooltip direction="top" offset={[0, -12]}>{s.name}</Tooltip><Popup><SchoolPopup school={s} /></Popup></Marker>)}
+        {layers.schools && visibleSchools.map(s => <Marker key={s.id} position={[s.lat, s.lon] as LatLngExpression} icon={schoolIcon(selectedSchool?.id === s.id, schoolSize)} opacity={selectedSchool && selectedSchool.id !== s.id ? 0.55 : 1}><Tooltip pane="tooltipPane" direction="top" offset={[0, -3]}>{s.name}</Tooltip><Popup pane="popupPane"><SchoolPopup school={s} /></Popup></Marker>)}
       </>}
     </MapContainer>
     <div className="map-top-controls">

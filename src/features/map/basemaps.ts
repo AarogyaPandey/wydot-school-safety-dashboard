@@ -1,10 +1,17 @@
-// Provider endpoints and usage references are recorded in docs/implementation.md.
+// Light Gray is our presentation of OSM tiles, not a separate provider/product.
+// Keep the 'streets' ID so existing saved selections retain their appearance.
+const osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const usgsAttribution = '<a href="https://www.usgs.gov/programs/national-geospatial-program/national-map">USGS The National Map</a>';
 export const BASEMAPS = {
   streets: {
-    label: 'Streets', description: 'OpenStreetMap',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    label: 'Light Gray', description: 'OpenStreetMap',
+    url: osmUrl, attribution: osmAttribution,
+    maxNativeZoom: 19,
+  },
+  osm: {
+    label: 'OpenStreetMap', description: 'Standard colors',
+    url: osmUrl, attribution: osmAttribution,
     maxNativeZoom: 19,
   },
   topographic: {
