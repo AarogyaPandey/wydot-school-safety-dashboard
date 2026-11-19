@@ -60,13 +60,16 @@ function storyFilters(data: ResearchDataset, year: number | 'all', bufferFt: num
 export function selectStorySchoolCrashes(data: ResearchDataset, year: number | 'all', bufferFt: number, schoolId: string): Crash[] {
   return selectMatches(data, storyFilters(data, year, bufferFt, schoolId)).map(({ crash }) => crash);
 }
+export function selectStoryMatches(data: ResearchDataset, year: number | 'all', bufferFt: number, schoolId = 'all'): MatchedCrash[] {
+  return selectMatches(data, storyFilters(data, year, bufferFt, schoolId));
+}
 export function selectStoryCompleteYears(data: ResearchDataset): number[] {
   const linkedCrashIds = new Set(data.links.map(link => link.crashId));
   return [...new Set(data.crashes.filter(crash => linkedCrashIds.has(crash.id) && crash.year <= data.metadata.completeThrough).map(crash => crash.year))].sort((a, b) => b - a);
 }
 export function selectStorySchoolCounts(data: ResearchDataset, year: number | 'all', bufferFt: number): SchoolCount[] {
   const filters = storyFilters(data, year, bufferFt);
-  return selectSchoolCounts(data, selectMatches(data, filters), filters);
+  return selectSchoolCounts(data, selectStoryMatches(data, year, bufferFt), filters);
 }
 export function summarize(matches: MatchedCrash[]) {
   return {

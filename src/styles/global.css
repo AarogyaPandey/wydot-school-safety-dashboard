@@ -403,6 +403,11 @@ th button { display: flex; align-items: center; gap: 5px; padding: 0; background
 .buffer-comparison-note, .buffer-map-unavailable { margin-top: 10px; color: #786b5a; font-size: 11px !important; line-height: 1.65; }
 .story-chart-section .story-section-heading { max-width: 760px; }
 .story-chart-section .story-section-heading > p { margin-top: 10px; }
+.story-chart-controls.story-weekday-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 10px; margin-top: 18px; }
+.story-weekday-controls label { color: #745e41; font-size: 11px; font-weight: 500; }
+.story-weekday-filter { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.story-weekday-filter label { flex-shrink: 0; white-space: nowrap; }
+.story-weekday-controls .story-weekday-filter select { flex: 1 1 0; width: auto; min-width: 0; }
 .story-chart-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 20px 0 13px; }
 .story-chart-controls label, .story-control-label { color: #745e41; font-size: 11px; font-weight: 500; }
 .story-chart-controls select { width: auto; min-width: 225px; }
@@ -512,6 +517,7 @@ th button { display: flex; align-items: center; gap: 5px; padding: 0; background
   .story-map-illustration { min-height: 220px; }
   .story-chart-controls { align-items: flex-start; gap: 8px; }
   .story-chart-controls select { min-width: 0; flex: 1; }
+  .story-chart-controls.story-weekday-controls { grid-template-columns: minmax(0, 1fr); }
   .story-control-label { flex-basis: 100%; margin-top: 6px; }
   .story-chart-controls .segmented { width: 100%; }
   .story-chart-frame .chart-content { height: max(540px, 72vh); }

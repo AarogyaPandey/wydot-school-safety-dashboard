@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTERS, formatClock, formatDate, parseFilters, serializeFilters } from '../src/domain/filters';
-import { selectMatches, selectSchoolCounts, selectStoryCompleteYears, selectStorySchoolCounts, selectStorySchoolCrashes, seriesByHour, seriesByYear, summarize } from '../src/domain/selectors';
+import { selectMatches, selectSchoolCounts, selectStoryCompleteYears, selectStoryMatches, selectStorySchoolCounts, selectStorySchoolCrashes, seriesByHour, seriesByYear, summarize } from '../src/domain/selectors';
 import { crashSchema } from '../src/domain/types';
 import { fixtureDataset } from './fixtures/research';
 import { buildAggregateCsv, csvCell } from '../src/features/exports/aggregates';
@@ -62,6 +62,16 @@ describe('crash accounting', () => {
   });
   it('offers only complete years in the story map and chart year controls', () => {
     expect(selectStoryCompleteYears(fixtureDataset)).toEqual([2020, 2010]);
+  });
+  it('filters story chart matches by the independently selected year and proximity buffer', () => {
+    expect(selectStoryMatches(fixtureDataset, 2020, 500).map(match => match.crash.id)).toEqual(['fixture-one']);
+    expect(selectStoryMatches(fixtureDataset, 2020, 1000).map(match => match.crash.id)).toEqual(['fixture-one', 'fixture-two']);
+    expect(selectStoryMatches(fixtureDataset, 'all', 1320).map(match => match.crash.id)).toEqual(['fixture-one', 'fixture-two', 'fixture-historical']);
+  });
+  it('composes the weekday chart school selection with its selected year and buffer', () => {
+    expect(selectStoryMatches(fixtureDataset, 2020, 1000, 'fixture-west').map(match => match.crash.id)).toEqual(['fixture-one', 'fixture-two']);
+    expect(selectStoryMatches(fixtureDataset, 2020, 1000, 'fixture-east').map(match => match.crash.id)).toEqual(['fixture-one']);
+    expect(selectStoryMatches(fixtureDataset, 'all', 1320, 'fixture-east').map(match => match.crash.id)).toEqual(['fixture-one']);
   });
 });
 describe('local dates, clock values, and boundary hours', () => {
