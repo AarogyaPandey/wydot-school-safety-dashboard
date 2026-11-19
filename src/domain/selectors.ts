@@ -1,3 +1,4 @@
+import { DEFAULT_FILTERS } from './filters';
 import type { Crash, Filters, MatchedCrash, ResearchDataset, SchoolCount, Severity, SeverityGroup } from './types';
 
 export const severityGroup = (severity: Severity): SeverityGroup => severity === 'fatal' || severity === 'serious' ? 'fatal-serious' : severity === 'minor' || severity === 'possible' ? 'minor-possible' : severity;
@@ -46,6 +47,26 @@ export function selectSchoolCounts(data: ResearchDataset, matches: MatchedCrash[
     }
   }
   return [...result.values()].sort((a, b) => b.crashes - a.crashes || a.school.name.localeCompare(b.school.name));
+}
+function storyFilters(data: ResearchDataset, year: number | 'all', bufferFt: number, schoolId = 'all'): Filters {
+  return {
+    ...DEFAULT_FILTERS,
+    schoolId,
+    bufferFt,
+    startYear: year === 'all' ? data.metadata.firstYear : year,
+    endYear: year === 'all' ? data.metadata.completeThrough : year,
+  };
+}
+export function selectStorySchoolCrashes(data: ResearchDataset, year: number | 'all', bufferFt: number, schoolId: string): Crash[] {
+  return selectMatches(data, storyFilters(data, year, bufferFt, schoolId)).map(({ crash }) => crash);
+}
+export function selectStoryCompleteYears(data: ResearchDataset): number[] {
+  const linkedCrashIds = new Set(data.links.map(link => link.crashId));
+  return [...new Set(data.crashes.filter(crash => linkedCrashIds.has(crash.id) && crash.year <= data.metadata.completeThrough).map(crash => crash.year))].sort((a, b) => b - a);
+}
+export function selectStorySchoolCounts(data: ResearchDataset, year: number | 'all', bufferFt: number): SchoolCount[] {
+  const filters = storyFilters(data, year, bufferFt);
+  return selectSchoolCounts(data, selectMatches(data, filters), filters);
 }
 export function summarize(matches: MatchedCrash[]) {
   return {

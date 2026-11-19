@@ -7,6 +7,7 @@ import { useLatestFilterLink } from './useLatestFilterLink';
 const MapPage = lazy(() => import('../pages/MapPage'));
 const AnalyticsPage = lazy(() => import('../pages/AnalyticsPage'));
 const AboutPage = lazy(() => import('../pages/AboutPage'));
+const StoryPage = lazy(() => import('../pages/StoryPage'));
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -24,7 +25,7 @@ function Shell() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   useEffect(() => {
-    const name = location.pathname.includes('analytics') ? 'Analytics' : location.pathname.includes('about') ? 'About the project' : 'Map explorer';
+    const name = location.pathname.includes('analytics') ? 'Analytics' : location.pathname.includes('about') ? 'About the project' : location.pathname.includes('story') ? 'Explore the Data' : 'Map explorer';
     document.title = `${name} · Cheyenne School Zone Safety`;
     if (location.pathname !== '/map' && !location.hash) window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -36,13 +37,14 @@ function Shell() {
         <span><strong>School Zone Safety</strong><small>CHEYENNE, WYOMING</small></span>
       </NavLink>
       <nav className="main-nav" aria-label="Main navigation">
-        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} onClick={preserveFilters} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
+        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/story', label: 'Explore the Data', Icon: BookOpen }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} onClick={preserveFilters} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
       </nav>
     </header>
     {!online && <div className="offline-banner" role="status">You’re offline. Loaded data remains available; basemap tiles and unloaded layers may be unavailable.</div>}
     <ErrorBoundary><Suspense fallback={<main className="page-loading" aria-live="polite"><span className="spinner" />Opening dashboard…</main>}><Routes>
       <Route path="/map" element={<MapPage />} />
       <Route path="/analytics" element={<AnalyticsPage />} />
+      <Route path="/story" element={<StoryPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="*" element={<Navigate to={`/map${location.search}`} replace />} />
     </Routes></Suspense></ErrorBoundary>

@@ -42,3 +42,12 @@ export function schoolOption(rows: SchoolCount[]): EChartsOption {
     series: [{ type: 'bar', name: 'Unique nearby crashes', data: sorted.map(r => r.crashes), barMaxWidth: 13, itemStyle: { color: '#96774f', borderRadius: [0, 3, 3, 0] }, label: { show: true, position: 'right', fontSize: 11, color: '#716250' } }],
   };
 }
+export function schoolStoryOption(rows: SchoolCount[]): EChartsOption {
+  const sorted = [...rows].sort((a, b) => b.crashes - a.crashes || a.school.name.localeCompare(b.school.name));
+  return {
+    grid: { top: 8, left: 190, right: 45, bottom: 28 },
+    xAxis: { ...yAxis, type: 'value' },
+    yAxis: { type: 'category', data: sorted.map(row => row.school.name), inverse: true, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { fontSize: 11, width: 175, overflow: 'truncate' } },
+    series: [{ type: 'bar', name: 'Nearby crash records', data: sorted.map(row => row.crashes), barMaxWidth: 15, itemStyle: { color: '#96774f', borderRadius: [0, 3, 3, 0] }, label: { show: true, position: 'right', fontSize: 10, color: '#716250' } }],
+  };
+}

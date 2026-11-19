@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTERS, formatClock, formatDate, parseFilters, serializeFilters } from '../src/domain/filters';
-import { selectMatches, selectSchoolCounts, seriesByHour, seriesByYear, summarize } from '../src/domain/selectors';
+import { selectMatches, selectSchoolCounts, selectStoryCompleteYears, selectStorySchoolCounts, selectStorySchoolCrashes, seriesByHour, seriesByYear, summarize } from '../src/domain/selectors';
 import { crashSchema } from '../src/domain/types';
 import { fixtureDataset } from './fixtures/research';
 import { buildAggregateCsv, csvCell } from '../src/features/exports/aggregates';
@@ -41,6 +41,27 @@ describe('crash accounting', () => {
   it('preserves unverified school coverage instead of dropping schools without links', () => {
     const schools = selectSchoolCounts(fixtureDataset, selectMatches(fixtureDataset, DEFAULT_FILTERS), DEFAULT_FILTERS);
     expect(schools.find(r => r.school.id === 'fixture-uncovered')).toMatchObject({ crashes: 0, school: { hasLinkedRecords: false } });
+  });
+  it('counts school-linked crashes by selected story year and buffer, excluding the incomplete year from all-complete totals', () => {
+    expect(selectStorySchoolCounts(fixtureDataset, 2020, 500).map(row => [row.school.id, row.crashes])).toEqual([
+      ['fixture-west', 1], ['fixture-east', 0], ['fixture-uncovered', 0],
+    ]);
+    expect(selectStorySchoolCounts(fixtureDataset, 2020, 1000).map(row => [row.school.id, row.crashes])).toEqual([
+      ['fixture-west', 2], ['fixture-east', 1], ['fixture-uncovered', 0],
+    ]);
+    expect(selectStorySchoolCounts(fixtureDataset, 'all', 1320).find(row => row.school.id === 'fixture-west')?.crashes).toBe(3);
+    expect(selectStorySchoolCounts(fixtureDataset, 2026, 1320).find(row => row.school.id === 'fixture-west')?.crashes).toBe(1);
+  });
+  it('returns distinct crash locations for one school within its selected year and buffer', () => {
+    expect(selectStorySchoolCrashes(fixtureDataset, 2020, 500, 'fixture-west').map(crash => crash.id)).toEqual(['fixture-one']);
+    expect(selectStorySchoolCrashes(fixtureDataset, 2020, 1000, 'fixture-west').map(crash => crash.id)).toEqual(['fixture-one', 'fixture-two']);
+    expect(selectStorySchoolCrashes(fixtureDataset, 2020, 500, 'fixture-east')).toEqual([]);
+    expect(selectStorySchoolCrashes(fixtureDataset, 'all', 1320, 'fixture-west').map(crash => crash.id)).toEqual(['fixture-one', 'fixture-two', 'fixture-historical']);
+    const duplicatedRelationship = { ...fixtureDataset, links: [...fixtureDataset.links, fixtureDataset.links[0]] };
+    expect(selectStorySchoolCrashes(duplicatedRelationship, 2020, 500, 'fixture-west').map(crash => crash.id)).toEqual(['fixture-one']);
+  });
+  it('offers only complete years in the story map and chart year controls', () => {
+    expect(selectStoryCompleteYears(fixtureDataset)).toEqual([2020, 2010]);
   });
 });
 describe('local dates, clock values, and boundary hours', () => {
