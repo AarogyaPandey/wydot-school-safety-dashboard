@@ -135,7 +135,7 @@ export default function MapPage() {
   const schoolBufferCenters = useMemo<SchoolBufferCenter[]>(
     () => visibleSchools
       .filter(s => filters.schoolId === 'all' || filters.schoolId === s.id)
-      .map(s => [s.lon, s.lat]),
+      .map(s => [s.lon, s.lat] as const),
     [visibleSchools, filters.schoolId],
   );
   const hasFilters = usingUploads ? Boolean(filters.bounds || uploadSettings.categoryValue || uploadSettings.fromDate || uploadSettings.toDate) : serializeFilters(filters) !== '';

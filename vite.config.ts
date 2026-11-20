@@ -15,6 +15,7 @@ export default defineConfig(({ command, mode }) => {
     preview: { host: '127.0.0.1', port: 4173, strictPort: true },
     build: {
       sourcemap: false,
+      base: './',
       rollupOptions: { output: { manualChunks: { react: ['react', 'react-dom', 'react-router-dom'], leaflet: ['leaflet', 'react-leaflet'] } } },
     },
   };

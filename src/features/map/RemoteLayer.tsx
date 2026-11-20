@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { GeoJSON } from 'react-leaflet';
 import { circleMarker, type Layer, type PathOptions } from 'leaflet';
 import type { Feature, FeatureCollection } from 'geojson';
@@ -15,10 +15,9 @@ function popup(feature: Feature, key: string) {
   const values: [string, unknown][] = key.startsWith('hot-') ? [['Crashes in cell', p.n], ['Gi* z-score', p.gi_z], ['Adjusted p-value', p.p_adj], ['Nearest school', p.nearest_school], ['Distance from cell center (ft)', p.dist_school_ft]]
     : key === 'speed' ? [
       ...(p.school_zone_speed_override === true
-        ? [['Analysis speed (assumed)', '20 mph'] as [string, unknown], ['Source speed limit', p.source_speed_limit === 0 ? 'Unspecified (0)' : p.source_speed_limit === null || p.source_speed_limit === undefined ? 'Unknown / not recorded' : `${numeric(p.source_speed_limit)} mph`] as [string, unknown]]
-        : [[p.speed_limit === 0 || p.speed_limit === null || p.speed_limit === undefined ? 'Speed limit' : 'Speed limit (mph)', p.speed_limit === 0 ? 'Unspecified (0)' : p.speed_limit === null || p.speed_limit === undefined ? 'Unknown / not recorded' : numeric(p.speed_limit)] as [string, unknown]]),
-      ['Source', p.speed_limit_source],
-      ...(p.road_name ? [['Road', p.road_name] as [string, unknown]] : [['Type', p.speed_limit_type], ['Route', p.route]] as [string, unknown][]),
+        ? [['Speed limit (assumed)', '20 mph'] as [string, unknown], ['Posted speed limit', p.source_speed_limit === 0 ? 'Unspecified (0)' : p.source_speed_limit === null || p.source_speed_limit === undefined ? 'Unknown / not recorded' : `${numeric(p.source_speed_limit)} mph`] as [string, unknown]]
+        : [['Posted speed limit', p.speed_limit === 0 ? 'Unspecified (0)' : p.speed_limit === null || p.speed_limit === undefined ? 'Unknown / not recorded' : `${numeric(p.speed_limit)} mph`] as [string, unknown]]),
+      ...(p.road_name || p.routeid ? [['Street', p.road_name || p.routeid] as [string, unknown]] : []),
     ]
     : key === 'aadt' ? [['Vehicles / day', p.aadt_volume], ['Truck AADT', p.truck_aadt], ['Traffic year', p.traffic_year], ['Route', p.route]]
     : key === 'roads' ? [['Classification', ROAD_CLASSES[String(p.fsystemnumeric)] || p.fsystemtext], ['Route', p.routeid]]
@@ -45,6 +44,7 @@ function style(feature: Feature | undefined, key: string, speedCategories: Speed
 }
 export default function RemoteLayer({ layerKey, trafficYear, onStatus, onSpeedCategories, schoolBufferCenters = [], schoolBufferFt = 1000 }: { layerKey: string; trafficYear: number; onStatus: (key: string, error: string | null) => void; onSpeedCategories?: (categories: SpeedLimitCategory[] | null) => void; schoolBufferCenters?: SchoolBufferCenter[]; schoolBufferFt?: number }) {
   const [data, setData] = useState<FeatureCollection | null>(null);
+  const bufferKey = useMemo(() => JSON.stringify({ centers: schoolBufferCenters, ft: schoolBufferFt }), [schoolBufferCenters, schoolBufferFt]);
   useEffect(() => {
     let active = true; setData(null); onStatus(layerKey, null);
     if (layerKey === 'speed') onSpeedCategories?.(null);
@@ -64,7 +64,7 @@ export default function RemoteLayer({ layerKey, trafficYear, onStatus, onSpeedCa
       }
     });
     return () => { active = false; };
-  }, [layerKey, trafficYear, onStatus, onSpeedCategories, schoolBufferCenters, schoolBufferFt]);
+  }, [layerKey, trafficYear, onStatus, onSpeedCategories, bufferKey]);
   if (!data) return null;
   const speedCategories = layerKey === 'speed' ? speedLimitCategories(data.features) : [];
   const popupOptions = { pane: 'popupPane', ...(layerKey === 'speed' ? { autoPanPaddingTopLeft: [16, 130] as [number, number], autoPanPaddingBottomRight: [270, 110] as [number, number] } : {}) };

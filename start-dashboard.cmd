@@ -26,3 +26,4 @@ echo Keep this window open. Press Ctrl+C to stop.
 set "DASHBOARD_EXIT=%errorlevel%"
 if not "%DASHBOARD_EXIT%"=="0" if /i not "%~1"=="--no-open" pause
 exit /b %DASHBOARD_EXIT%
+

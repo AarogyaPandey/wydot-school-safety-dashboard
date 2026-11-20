@@ -4,9 +4,9 @@ export type SpeedLimitCategory = { value: number | null; label: string; color: s
 export type SpeedLimitFeature = Feature & { properties: Record<string, unknown> };
 export type SchoolBufferCenter = readonly [longitude: number, latitude: number];
 
-const COLORS = ['#2471a3', '#c0392b', '#239b56', '#8e44ad', '#d68910', '#148f77', '#34495e', '#d35400', '#5b2c6f', '#117864', '#7d6608', '#1f618d', '#a93226', '#117a65', '#884ea0', '#7e5109'];
+const COLORS = ['#c2185b', '#c0392b', '#239b56', '#8e44ad', '#d68910', '#148f77', '#34495e', '#d35400', '#5b2c6f', '#117864', '#7d6608', '#1f618d', '#a93226', '#117a65', '#884ea0', '#7e5109'];
 const UNKNOWN_COLOR = '#7b6e5d';
-const SCHOOL_ZONE_COLOR = '#c2185b';
+const SCHOOL_ZONE_COLOR = '#d32f2f';
 const FEET_TO_METERS = 0.3048006096;
 const METERS_PER_DEGREE = 111_320;
 const INTERVAL_EPSILON = 1e-10;
@@ -106,6 +106,14 @@ function splitLineAtSchoolBuffers(
   properties: Record<string, unknown>,
 ): SpeedLimitFeature[] {
   if (coordinates.length < 2) return [];
+  if (centers.length === 0) {
+    // No school buffers - return feature as-is without override
+    return [{
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates },
+      properties: { ...properties, school_zone_speed_override: false },
+    }];
+  }
   const pieces: SpeedLimitFeature[] = [];
   let currentCoordinates: Point[] = [];
   let currentOverride: boolean | null = null;

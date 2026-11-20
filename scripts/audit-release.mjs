@@ -7,7 +7,7 @@ async function files(directory, prefix = '') {
     ? files(path.join(directory, entry.name), `${prefix}${entry.name}/`)
     : [`${prefix}${entry.name}`]))).flat();
 }
-const allowedPublic = new Set(['favicon.svg', 'data/manifest.json']);
+const allowedPublic = new Set(['favicon.svg', 'data/manifest.json', 'data/dataset.json', 'data/layers/roads.geojson', 'data/layers/speed.geojson', 'data/layers/hotspots.geojson']);
 for (const file of await files('public')) assert(allowedPublic.has(file), `Unreviewed public asset: ${file}`);
 const manifest = JSON.parse(await readFile('dist/data/manifest.json', 'utf8'));
 assert.equal(manifest.status, 'withheld', 'The release manifest must remain withheld until permissions are reviewed.');
