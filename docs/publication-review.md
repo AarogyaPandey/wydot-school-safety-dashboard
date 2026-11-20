@@ -30,3 +30,8 @@ WYDOT’s [crash data guidance](https://www.dot.state.wy.us/home/dot_safety/cras
 ## User-provided GeoJSON
 
 The Upload control reads user-selected files in browser memory through the File API. It makes no upload request, stores no imported content in browser storage or source control, and adds no bundled datasets or research endpoints to production. The public source-data manifest stays withheld. Users may inspect their own files in a hosted static build; this does not expose the project's neighboring source folders or grant redistribution permission for those sources. Uploaded charts/aggregate downloads are user-derived artifacts; they do not establish authorization or de-identification, and no numerical suppression threshold is invented. Imported geometry/properties are rendered as data, not HTML, and remote data URLs in file properties are never fetched by the importer.
+
+
+## Standalone local research file
+
+The user explicitly requested the existing project data in an HTML file for local use only. `School-Zone-Safety.html` therefore embeds the cleaned research snapshot and map layers, including crash-level records. It is excluded by an explicit Git ignore rule, is not written into public/ or dist/, and has not been committed or published. It must not be treated as a publication-safe build or redistributed without the existing data/derived-product review. No browser server or filesystem-security exception is required to use the file; online basemap images remain ordinary provider requests.

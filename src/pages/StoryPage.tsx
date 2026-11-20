@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BarChart3, BookOpen, Map, ShieldCheck } from 'lucide-react';
 import { useLatestFilterLink } from '../app/useLatestFilterLink';
@@ -14,6 +14,7 @@ type StoryYear = number | 'all';
 export default function StoryPage() {
   const { state, usingUploads } = useDashboard();
   const location = useLocation();
+  useEffect(() => { if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start' }); }, [location.hash]);
   const preserveFilters = useLatestFilterLink();
   const [year, setYear] = useState<StoryYear>('all');
   const [bufferFt, setBufferFt] = useState<number>(1320);
@@ -37,20 +38,20 @@ export default function StoryPage() {
     <section className="story-hero">
       <div className="story-hero-copy">
         <span className="eyebrow">CHEYENNE, WYOMING SCHOOL SAFETY DASHBOARD</span>
-        <h1>Understanding crashes near Cheyenne schools</h1>
+        <h1>Spatial Story</h1>
         <p>Explore what this project measures, how to read its maps and charts, and how the patterns change with distance and time.</p>
-        <Link className="button primary" to={`/map${location.search}`} onClick={preserveFilters}><Map size={14} />Explore the map<ArrowRight size={14} /></Link>
+        <Link className="button primary" to={`/map${location.search}`} onClick={preserveFilters}><Map size={14} />Open map<ArrowRight size={14} /></Link>
       </div>
       <div className="story-hero-mark" aria-hidden="true"><Map size={34} strokeWidth={1.3} /><span /><span /><span /></div>
     </section>
 
     <nav className="story-chapters" aria-label="Story chapters">
-      <a href="#project"><span>01</span>Project</a>
-      <a href="#map-story"><span>02</span>Read the map</a>
-      <a href="#buffer-maps"><span>03</span>Compare buffers</a>
-      <a href="#chart-story"><span>04</span>Explore the chart</a>
-      <a href="#weekday-hour-chart"><span>05</span>Weekday and hour</a>
-      <a href="#interpret"><span>06</span>Interpret carefully</a>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#project" }}><span>01</span>Project</Link>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#map-story" }}><span>02</span>Read the map</Link>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#buffer-maps" }}><span>03</span>Compare buffers</Link>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#chart-story" }}><span>04</span>Explore the chart</Link>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#weekday-hour-chart" }}><span>05</span>Weekday and hour</Link>
+      <Link to={{ pathname: location.pathname, search: location.search, hash: "#interpret" }}><span>06</span>Interpret carefully</Link>
     </nav>
 
     <section id="project" className="story-section story-intro">

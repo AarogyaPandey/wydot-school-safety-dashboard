@@ -10,7 +10,7 @@ import { formatClock, formatDate, serializeFilters } from '../domain/filters';
 import { flagsUnknown, isPedBike, severityGroup } from '../domain/selectors';
 import { SEVERITY_GROUPS, SEVERITY_LABELS, type Bounds, type School } from '../domain/types';
 import RemoteLayer from '../features/map/RemoteLayer';
-import { BASEMAPS, type BasemapId } from '../features/map/basemaps';
+import { BASEMAPS, basemapAvailable, initialBasemap, type BasemapId } from '../features/map/basemaps';
 import type { SchoolBufferCenter, SpeedLimitCategory } from '../features/map/speed-limits';
 import UploadedMapLayers from '../features/uploads/UploadedMapLayers';
 import { UploadedLayerList } from '../features/uploads/UploadControl';
@@ -90,7 +90,7 @@ export default function MapPage() {
   const [zoom, setZoom] = useState(13);
   const [speedCategories, setSpeedCategories] = useState<SpeedLimitCategory[] | null>(null);
   const [basemapId, setBasemapId] = useState<BasemapId>(() => {
-    try { const saved = sessionStorage.getItem('school-safety-basemap'); return saved && Object.hasOwn(BASEMAPS, saved) ? saved as BasemapId : 'streets'; } catch { return 'streets'; }
+    try { return initialBasemap(sessionStorage.getItem('school-safety-basemap'), window.location.protocol); } catch { return 'streets'; }
   });
   const basemap = BASEMAPS[basemapId];
   const schoolSize = zoom <= 11 ? 8 : zoom <= 12 ? 10 : zoom <= 13 ? 14 : zoom <= 14 ? 18 : 22;
@@ -105,6 +105,7 @@ export default function MapPage() {
   const layerStatus = useCallback((key: string, error: string | null) => setLayerErrors(previous => { const next = { ...previous }; if (error) next[key] = error; else delete next[key]; return next; }), []);
   const toggleLayer = (key: keyof LayerState) => setLayers(previous => ({ ...previous, [key]: !previous[key] }));
   const changeBasemap = (id: BasemapId) => {
+    if (!basemapAvailable(id, window.location.protocol)) return;
     setTileError(false); setBasemapId(id);
     try { sessionStorage.setItem('school-safety-basemap', id); } catch { /* Session storage is optional. */ }
   };
@@ -142,7 +143,7 @@ export default function MapPage() {
   return <main id="main-content" className={`map-page${fullscreen ? ' map-expanded' : ''}`}>
     <h1 className="sr-only">Map</h1>
     <MapContainer center={[41.145, -104.80]} zoom={13} zoomControl={false} preferCanvas={true} className="leaflet-map" aria-label="Cheyenne school safety map">
-      <TileLayer key={basemapId} url={basemap.url} attribution={basemap.attribution} className={basemapId === 'streets' ? 'subdued-basemap' : ''} opacity={basemapId === 'streets' ? 0.7 : 1} maxNativeZoom={basemap.maxNativeZoom} maxZoom={19} eventHandlers={{ tileerror: () => setTileError(true), tileload: () => setTileError(false) }} />
+      <TileLayer key={basemapId} url={basemap.url} attribution={basemap.attribution} referrerPolicy="strict-origin-when-cross-origin" className={basemapId === 'streets' ? 'subdued-basemap' : ''} opacity={basemapId === 'streets' ? 0.7 : 1} maxNativeZoom={basemap.maxNativeZoom} maxZoom={19} eventHandlers={{ tileerror: () => setTileError(true), tileload: () => setTileError(false) }} />
       <ScaleControl position="bottomleft" imperial={true} metric={false} />
       <MapBridge onMap={setMapRef} onZoom={setZoom} />
       <BoxSelection active={selecting} onFinish={finishSelection} onCancel={cancelSelection} />
@@ -173,7 +174,7 @@ export default function MapPage() {
     {hasFilters && !showFilters && <div className="map-filter-summary"><FilterSummary /></div>}
     <div className={`map-notice${hasFilters && !showFilters ? ' with-filters' : ''}`}><DatasetNotice compact /></div>
     {showLayers && <div ref={layerPanel} id="map-layers" className="layer-panel"><div className="layer-panel-title"><strong>Layers</strong><button className="icon-button" aria-label="Close map layers" onClick={() => setShowLayers(false)}><X size={15} /></button></div>
-      <fieldset className="basemap-options"><legend className="field-eyebrow"><Mountain size={13} />Basemap</legend>{(Object.entries(BASEMAPS) as [BasemapId, typeof basemap][]).map(([id, item]) => <label className={`basemap-option${id === basemapId ? ' selected' : ''}`} key={id}><input type="radio" name="basemap" value={id} checked={id === basemapId} onChange={() => changeBasemap(id)} /><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}</fieldset>
+      <fieldset className="basemap-options"><legend className="field-eyebrow"><Mountain size={13} />Basemap</legend>{(Object.entries(BASEMAPS) as [BasemapId, typeof basemap][]).map(([id, item]) => <label className={`basemap-option${id === basemapId ? ' selected' : ''}`} key={id}><input type="radio" name="basemap" value={id} checked={id === basemapId} disabled={!basemapAvailable(id, window.location.protocol)} onChange={() => changeBasemap(id)} /><span><strong>{item.label}</strong><small>{basemapAvailable(id, window.location.protocol) ? item.description : 'Requires a web address; unavailable in local HTML'}</small></span></label>)}</fieldset>
       <UploadedLayerList />
       {!usingUploads && <><fieldset disabled={!ready}>
       <span className="field-eyebrow">Schools and crashes</span>{([{ id: 'schools', label: 'School locations' }, { id: 'zones', label: 'Proximity buffers' }, { id: 'crashes', label: 'Crash points' }, { id: 'hotspots', label: 'Statistical hotspots · Gi*' }] as const).map(l => <label className="checkbox-row" key={l.id}><input type="checkbox" checked={layers[l.id]} onChange={() => toggleLayer(l.id)} /><span>{l.label}</span></label>)}
@@ -190,7 +191,7 @@ export default function MapPage() {
       </div>
       {Object.keys(layerErrors).length > 0 && <div className="layer-error" role="alert">Layer unavailable. Toggle it to retry.</div>}
     </>}
-    {tileError && <div className="tile-error" role="status">Basemap unavailable.</div>}
+    {tileError && <div className="tile-error" role="status">Basemap unavailable. Choose another basemap in Layers.</div>}
     {!usingUploads && <div className="timeline"><button className={`play-button${playing ? ' playing' : ''}`} disabled={!ready} aria-label={playing ? 'Stop year playback' : 'Play years'} onClick={startPlayback}>{playing ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}</button><div className="timeline-label"><strong>{filters.startYear === filters.endYear ? filters.startYear : `${filters.startYear}–${filters.endYear}`}{filters.endYear === 2026 ? '*' : ''}</strong></div><div className="timeline-sliders"><label className="sr-only" htmlFor="timeline-start">Timeline start year</label><input id="timeline-start" type="range" min="1994" max="2026" value={filters.startYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ startYear: Math.min(Number(e.target.value), current.endYear) }))} /><label className="sr-only" htmlFor="timeline-end">Timeline end year</label><input id="timeline-end" type="range" min="1994" max="2026" value={filters.endYear} disabled={!ready || playing} onChange={e => updateFilters(current => ({ endYear: Math.max(Number(e.target.value), current.startYear) }))} /><div className="timeline-ticks"><span>1994</span><span>2026*</span></div></div></div>}
   </main>;
 }

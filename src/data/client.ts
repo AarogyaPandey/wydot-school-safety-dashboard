@@ -1,9 +1,11 @@
 import type { FeatureCollection } from 'geojson';
 import { researchDatasetSchema, type ResearchDataset, type TableRow } from '../domain/types';
+import { localSnapshot, STANDALONE_MODE } from './standalone';
 
 export const RESEARCH_MODE = import.meta.env.DEV && import.meta.env.MODE === 'research';
 export type DatasetState = { status: 'loading' | 'ready' | 'withheld' | 'error'; data: ResearchDataset | null; message: string };
 export async function fetchDataset(signal?: AbortSignal): Promise<DatasetState> {
+  if (STANDALONE_MODE) return { status: 'ready', data: researchDatasetSchema.parse(localSnapshot().dataset), message: '' };
   // Try to load dataset.json first (for standalone/built versions)
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}data/dataset.json`, { signal });
@@ -46,6 +48,10 @@ export async function fetchDataset(signal?: AbortSignal): Promise<DatasetState> 
 }
 const layerCache = new Map<string, Promise<FeatureCollection>>();
 export function fetchLayer(key: string, year = 2025): Promise<FeatureCollection> {
+  if (STANDALONE_MODE) {
+    const layer = localSnapshot().layers[`${key}:${year}`] || localSnapshot().layers[key];
+    return layer ? Promise.resolve(layer) : Promise.reject(new Error('This layer is not included in the local snapshot.'));
+  }
   const cacheKey = `${key}:${year}`;
   if (!layerCache.has(cacheKey)) {
     const fetchFn = async () => {
@@ -74,6 +80,7 @@ export function fetchLayer(key: string, year = 2025): Promise<FeatureCollection>
   return layerCache.get(cacheKey)!;
 }
 export async function fetchAnalysis(): Promise<Record<string, TableRow[]>> {
+  if (STANDALONE_MODE) return localSnapshot().analysis;
   if (!RESEARCH_MODE) throw new Error('The analytical outputs are awaiting publication review.');
   const response = await fetch('/__research/analysis', { cache: 'no-store' });
   if (!response.ok) throw new Error('The Phase 2 analysis tables could not be loaded.');

@@ -25,19 +25,19 @@ function Shell() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   useEffect(() => {
-    const name = location.pathname.includes('analytics') ? 'Analytics' : location.pathname.includes('about') ? 'About the project' : location.pathname.includes('story') ? 'Explore the Data' : 'Map explorer';
+    const name = location.pathname.includes('analytics') ? 'Analytics' : location.pathname.includes('about') ? 'About the project' : location.pathname.includes('story') ? 'Spatial Story' : 'Map explorer';
     document.title = `${name} · Cheyenne School Zone Safety`;
     if (location.pathname !== '/map' && !location.hash) window.scrollTo(0, 0);
   }, [location.pathname]);
   return <>
-    <a className="skip-link" href="#main-content">Skip to main content</a>
+    <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); const main = document.getElementById('main-content'); if (main) { main.tabIndex = -1; main.focus(); main.scrollIntoView(); } }}>Skip to main content</a>
     <header className="site-header">
       <NavLink to={`/map${location.search}`} onClick={preserveFilters} className="brand" aria-label="Cheyenne School Zone Safety home">
         <span className="brand-mark"><School size={19} strokeWidth={1.65} /></span>
         <span><strong>School Zone Safety</strong><small>CHEYENNE, WYOMING</small></span>
       </NavLink>
       <nav className="main-nav" aria-label="Main navigation">
-        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/story', label: 'Explore the Data', Icon: BookOpen }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} onClick={preserveFilters} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
+        {[{ to: '/map', label: 'Map', Icon: Map }, { to: '/analytics', label: 'Analytics', Icon: BarChart3 }, { to: '/story', label: 'Spatial Story', Icon: BookOpen }, { to: '/about', label: 'About', Icon: BookOpen }].map(({ to, label, Icon }) => <NavLink key={to} to={`${to}${location.search}`} onClick={preserveFilters} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Icon size={14} /><span>{label}</span></NavLink>)}
       </nav>
     </header>
     {!online && <div className="offline-banner" role="status">You’re offline. Loaded data remains available; basemap tiles and unloaded layers may be unavailable.</div>}

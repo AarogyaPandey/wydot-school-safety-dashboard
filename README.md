@@ -2,13 +2,21 @@
 
 Phase 3 WebGIS dashboard for the University of Wyoming GIST 5200 project in collaboration with WYDOT. Built with React, TypeScript, Vite, Leaflet, and Apache ECharts.
 
+## Open the standalone HTML
+
+For everyday local use, double-click **School-Zone-Safety.html** in Windows File Explorer. No terminal, npm command, Node.js, Python, or running server is needed to open it. The file embeds the application, styles, existing project data, map layers, AADT years, and saved analytical tables. Charts, filters, local uploads, and exports work without internet; online basemap tiles require an internet connection. The default Light Gray basemap uses grayscale USGS Topo tiles. Topographic and Aerial also work in local HTML. Standard OpenStreetMap is available only from HTTP(S) web addresses because its public tile service requires a website referrer.
+
+This is a **local research snapshot**, not a live data feed or an approved public release. The generated HTML contains crash-level records and is ignored by Git. Keep it local until redistribution permissions are reviewed. It may be moved to another folder without moving any project dependencies. Code/data changes are included only when the HTML is rebuilt.
+
+For maintainers, `npm run build:html` rebuilds this single file from the existing read-only source adapter. Building requires Node.js, Python, the neighboring source files, and access to the existing county-road service to snapshot its speed-limit layer. `npm run test:html` checks the actual file URL with no web server. The regular Vite source entry remains `index.html`; double-click the generated **School-Zone-Safety.html** for the standalone application.
+
 ## Run locally
 
 Use Node.js 22.12+ and Python 3. Install dependencies with `npm ci`, then run `npm run dev` and open `http://127.0.0.1:5173`. The research preview reads the existing neighboring Phase 2 exports and school workbook **in memory**. When the posted speed-limit layer is enabled, it also queries the Laramie County GIS Cooperative `LC_Maintained` service for road features in the map context bounds; an internet connection is required. Source data is not copied into this repository. Phase 2 is read-only.
 
 On this Windows workstation, double-click `start-dashboard.cmd`. Keep its terminal window open. It finds installed Node.js or the checksum-verified portable runtime directly, starts the local server, and opens `http://127.0.0.1:5173/map` in your browser once the server is listening. It does not require a global npm installation. If the temporary runtime is removed, install Node.js 22.12+; no system-wide configuration was changed. `start-dashboard.cmd --no-open` starts the same server without opening a browser, for automated checks.
 
-The dashboard needs that running server; opening `index.html` directly or visiting the address after closing the server window will not load the application. Startup errors remain visible in the launcher window.
+The development version needs that running server; opening the source `index.html` directly or visiting the address after closing the server window will not load that version. Use `School-Zone-Safety.html` for the server-free version. Startup errors remain visible in the launcher window.
 
 Default source locations, relative to this repository:
 

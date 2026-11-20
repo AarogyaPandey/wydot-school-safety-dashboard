@@ -10,9 +10,11 @@
     "dev": "vite --mode research",
     "dev:public": "vite --mode public",
     "build": "tsc --noEmit && vite build && node scripts/audit-release.mjs",
+    "build:html": "tsc --noEmit && node scripts/build-standalone.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:html": "playwright test --config playwright.standalone.config.ts",
     "audit:data": "tsx scripts/audit-data.ts",
     "audit:release": "node scripts/audit-release.mjs"
   },

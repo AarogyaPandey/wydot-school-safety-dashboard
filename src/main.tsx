@@ -1,8 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import App from './app/App';
 import 'leaflet/dist/leaflet.css';
 import './styles/global.css';
 
-createRoot(document.getElementById('root')!).render(<StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>);
+const Router = import.meta.env.MODE === 'standalone' || window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
+createRoot(document.getElementById('root')!).render(<StrictMode><Router><App /></Router></StrictMode>);

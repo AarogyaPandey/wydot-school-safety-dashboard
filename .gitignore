@@ -1,4 +1,5 @@
 node_modules/
+/School-Zone-Safety.html
 dist/
 .env
 .env.*

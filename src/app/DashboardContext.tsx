@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { fetchDataset, type DatasetState } from '../data/client';
+import { currentFilterSearch } from './browserLocation';
 import { DEFAULT_FILTERS, parseFilters, serializeFilters } from '../domain/filters';
 import { selectMatches, selectSchoolCounts, summarize } from '../domain/selectors';
 import type { Filters } from '../domain/types';
@@ -47,7 +48,7 @@ function useDashboardState() {
   const updateFilters = useCallback((patch: Partial<Filters> | ((current: Filters) => Partial<Filters>)) => {
     // History is updated before React finishes a navigation transition. Read that
     // current value so a quick second control change cannot restore stale filters.
-    const current = parseFilters(window.location.search);
+    const current = parseFilters(currentFilterSearch());
     const next = { ...current, ...(typeof patch === 'function' ? patch(current) : patch) };
     setSearchParams(serializeFilters(next).slice(1), { replace: true });
   }, [setSearchParams]);
